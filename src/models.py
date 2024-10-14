@@ -31,11 +31,9 @@ class TemporalGazeNet(nn.Module):
         x = self.fc2(x)
         return x
 
-class GazeNet(nn.Module):
-    def __init__(self, length, model_type: int):
+class GazePredictor(nn.Module):
+    def __init__(self):
         super().__init__()
-        self.temporal_feature_net = TemporalFeatureNet(100352*length)
-        self.temporal_gaze_net = TemporalGazeNet()
         self.fc1 = nn.Linear(in_features=32+8, out_features=32)
         self.relu1 = nn.ReLU()
         self.fc2 = nn.Linear(in_features=32, out_features=16)
@@ -45,6 +43,22 @@ class GazeNet(nn.Module):
         self.fc4 = nn.Linear(in_features=8, out_features=4)
         self.relu4 = nn.ReLU()
         self.fc5 = nn.Linear(in_features=4, out_features=2)
+
+    def forward(self, x):
+        x = self.relu1(self.fc1(x))
+        x = self.relu2(self.fc2(x))
+        x = self.relu3(self.fc3(x))
+        x = self.relu4(self.fc4(x))
+        x = self.fc5(x)
+        return x
+
+
+class GazeNet(nn.Module):
+    def __init__(self, length, model_type: int):
+        super().__init__()
+        self.temporal_feature_net = TemporalFeatureNet(100352*length)
+        self.temporal_gaze_net = TemporalGazeNet()
+        self.gaze_predictor = GazePredictor()
 
         self.model_type = model_type
 
@@ -64,12 +78,7 @@ class GazeNet(nn.Module):
         x_gaze = torch.flatten(self.temporal_gaze_net(x_gaze))
         x = torch.cat([x_features, x_gaze])
         x = x.unsqueeze(0)
-        x = self.relu1(self.fc1(x))
-        x = self.relu2(self.fc2(x))
-        x = self.relu3(self.fc3(x))
-        x = self.relu4(self.fc4(x))
-        x = self.fc5(x)
-
+        x = self.gaze_predictor(x)
         return x
 
 class GazeEncoder(nn.Module):

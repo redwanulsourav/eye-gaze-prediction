@@ -136,8 +136,84 @@ class TestTemporalGazeNet(unittest.TestCase):
         for i in range(len(y1)):
             assert abs(y1[i] - h2[i]) < 1e-6, f'Value mismatch at idx {i}'
 
+class TestGazePredictor():
+    def __init__(self):
+        self.gaze_net = models.GazePredictor()
+        
+        self.linear1_w = list(self.gaze_net.parameters())[0].tolist()
+        self.linear1_b = list(self.gaze_net.parameters())[1].tolist()
+        self.linear2_w = list(self.gaze_net.parameters())[2].tolist()
+        self.linear2_b = list(self.gaze_net.parameters())[3].tolist()
+        self.linear3_w = list(self.gaze_net.parameters())[4].tolist()
+        self.linear3_b = list(self.gaze_net.parameters())[5].tolist()
+        self.linear4_w = list(self.gaze_net.parameters())[6].tolist()
+        self.linear4_b = list(self.gaze_net.parameters())[7].tolist()
+        self.linear5_w = list(self.gaze_net.parameters())[8].tolist()
+        self.linear5_b = list(self.gaze_net.parameters())[9].tolist()
+
+    def relu(self, x):
+        return max(0, x)
+
+    def test(self):
+        x = torch.rand(1, 40)
+        y1 = self.gaze_net(x).tolist()[0]
+
+        x = x.tolist()[0]
+
+        o1 = [0 for i in range(32)]
+
+        for i in range(32):
+            for j in range(40):
+                o1[i] += self.linear1_w[i][j] * x[j]
+            o1[i] += self.linear1_b[i]
+        o1 = [self.relu(r) for r in o1]
+
+        o2 = [0 for i in range(16)]
+
+        for i in range(16):
+            for j in range(32):
+                o2[i] += self.linear2_w[i][j] * o1[j]
+            o2[i] += self.linear2_b[i]
+        
+        o2 = [self.relu(r) for r in o2]
+
+        o3 = [0 for i in range(8)]
+
+        for i in range(8):
+            for j in range(16):
+                o3[i] += self.linear3_w[i][j] * o2[j]
+            o3[i] += self.linear3_b[i]
+
+
+        o3 = [self.relu(r) for r in o3]
+
+        o4 = [0 for i in range(4)]
+
+        for i in range(4):
+            for j in range(8):
+                o4[i] += self.linear4_w[i][j] * o3[j]
+            o4[i] += self.linear4_b[i]
+
+
+        o4 = [self.relu(r) for r in o4]
+
+        o5 = [0 for i in range(2)]
+
+        for i in range(2):
+            for j in range(4):
+                o5[i] += self.linear5_w[i][j] * o4[j]
+            o5[i] += self.linear5_b[i]
+
+        assert len(o5) == len(y1), 'Lengths do not match'
+        for q, r in zip(o5, y1):
+            assert abs(q - r) < 1e-6, 'Item mismatch at idx'
+
+
+
 obj = TestTemporalFeatureNet()
 obj2 = TestTemporalGazeNet()
+obj3 = TestGazePredictor()
 obj.test()
 obj2.test()
+obj3.test()
 print('models test passed')
