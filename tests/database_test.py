@@ -21,3 +21,4 @@ class TestDatabaseMethods(unittest.TestCase):
 obj = TestDatabaseMethods()
 obj.test_find()
 obj.test_findmin()
+print('database test passed')
