@@ -1,4 +1,5 @@
 cd ..
 python -m gp3.tests.database_test
 python -m gp3.tests.models_test
+python -m gp3.tests.generate_run_cfgs_test
 cd gp3
