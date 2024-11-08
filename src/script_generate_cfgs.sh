@@ -5,6 +5,7 @@ python generate_run_cfgs.py -s 4 -l $1 -t 0
 python generate_run_cfgs.py -s 5 -l $1 -t 0
 python generate_run_cfgs.py -s 10 -l $1 -t 0
 python generate_run_cfgs.py -s 15 -l $1 -t 0
+python generate_run_cfgs.py -s 20 -l $1 -t 0
 
 python generate_run_cfgs.py -s 1 -l $1 -t 1
 python generate_run_cfgs.py -s 2 -l $1 -t 1
@@ -13,6 +14,7 @@ python generate_run_cfgs.py -s 4 -l $1 -t 1
 python generate_run_cfgs.py -s 5 -l $1 -t 1
 python generate_run_cfgs.py -s 10 -l $1 -t 1
 python generate_run_cfgs.py -s 15 -l $1 -t 1
+python generate_run_cfgs.py -s 20 -l $1 -t 1
 
 python generate_run_cfgs.py -s 1 -l $1 -t 2
 python generate_run_cfgs.py -s 2 -l $1 -t 2
@@ -21,6 +23,7 @@ python generate_run_cfgs.py -s 4 -l $1 -t 2
 python generate_run_cfgs.py -s 5 -l $1 -t 2
 python generate_run_cfgs.py -s 10 -l $1 -t 2
 python generate_run_cfgs.py -s 15 -l $1 -t 2
+python generate_run_cfgs.py -s 20 -l $1 -t 2
 
 
 
