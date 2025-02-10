@@ -91,12 +91,11 @@ if __name__ == '__main__':
 
     print(f'Run ID: {run_id}')
     
-    running_losses = []
     
     for i in range(start_epoch, end_epoch + 1):
         model.train()
         avg_loss, current_running_loss = train_one_epoch(i, training_loader, optim, loss_fn, model, device)
-        running_losses += current_running_loss
+        running_losses = current_running_loss
         
         H = {
             "average_loss": avg_loss,
@@ -107,7 +106,7 @@ if __name__ == '__main__':
             json.dump(H, f)
         
         torch.save(model.state_dict(), f'runs/{run_id}/epochs/{i}/weights.pt')
-
+        torch.save(optim.state_dict(), f'runs/{run_id}/epochs/{i}/optim.pt')
         print(f'Epoch {i}/{end_epoch + 1}: Loss: {avg_loss}')
 
 

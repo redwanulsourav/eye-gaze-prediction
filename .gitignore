@@ -164,3 +164,8 @@ cython_debug/
 src/runs
 src/run_cfgs/*
 src/nohup.out	       
+
+journal.md
+journal/
+runs_wo_pretrained/
+nohup.out

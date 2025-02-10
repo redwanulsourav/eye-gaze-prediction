@@ -12,7 +12,8 @@ class DatasetInterface():
         self.datasetPath = datasetPath
         self.videoJsonPath = f'{datasetPath}/processed/videos/video_order.json'
         self.gazeJsonPath = f'{datasetPath}/processed/gaze/gaze_order.json'
-
+        self.videoWidth = None
+        self.videoHeight = None
         self.videoJson = None
         self.gazeJson = None
 

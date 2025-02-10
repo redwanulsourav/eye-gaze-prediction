@@ -82,8 +82,7 @@ class Itti_Koch_Model():
         assert type(img) == np.ndarray, f'Expected the type of img to be numpy.ndarray, found {type(img)}'
         assert type(levels) == list, f'Expected the type of levels to be list, found {type(levels)}'
         
-        # TODO (!!Urgent!!): Need extra requirements on dimension of the image.
-
+        
         r = img[:, :, self.RED_CHANNEL].astype(np.float64)
         g = img[:, :, self.GREEN_CHANNEL].astype(np.float64)
         b = img[:, :, self.BLUE_CHANNEL].astype(np.float64)
@@ -128,7 +127,7 @@ class Itti_Koch_Model():
             Returns:
                 A `numpy.ndarray` with same feature channels but with upsmapled image.
         """
-        assert finerScale < coarserScale f'Finerscale should be lower than coarser scale'
+        assert finerScale < coarserScale, f'Finerscale should be lower than coarser scale'
         assert type(img) == np.ndarray
         assert type(coarserScale) == int
         assert type(finerScale) == int
@@ -159,7 +158,7 @@ class Itti_Koch_Model():
         BSigma = pyramids['blue_pyr']
         YSigma = pyramids['yellow_pyr']
         OSigmaTheta = pyramids['orientation_pyr']
-
+        
         I_C_S = {}
         BY_C_S = {}
         RG_C_S = {}
@@ -183,17 +182,17 @@ class Itti_Koch_Model():
                 temp = np.abs((BSigma[i] - YSigma[i]) - (upscaled_Y_S - upscaled_B_S))  # Take the absolute difference.
                 BY_C_S[i][_s] = temp    # Store.
 
-                upscaled_G_s = self.upscale_image(G_sigma[_s], _s, i)   
-                upscaled_R_s = self.upscale_image(R_sigma[_s], _s, i)
-                temp = np.abs((R_sigma[i] - G_sigma[i]) - (upscaled_G_s - upscaled_R_s))
+                upscaled_G_s = self.upscaleImage(GSigma[_s], _s, i)   
+                upscaled_R_s = self.upscaleImage(RSigma[_s], _s, i)
+                temp = np.abs((RSigma[i] - GSigma[i]) - (upscaled_G_s - upscaled_R_s))
                 RG_C_S[i][_s] = temp
 
                 angles = list(OSigmaTheta[list(OSigmaTheta.keys())[0]].keys())  # Retrieve the list of angles
                 
                 O_C_S_Theta[i][_s] = {}
                 for k in angles:
-                    upscaled_Os_Theta = self.upscaleImage(O_Sigma_Theta[_s][k], _s, i).astype(np.float64)   # Upscale
-                    O_C_S_Theta[i][_s][k] = np.abs(O_Sigma_Theta[i][k].astype(np.float64) - upscaled_Os_theta)   # Absolute Diff
+                    upscaled_Os_Theta = self.upscaleImage(OSigmaTheta[_s][k], _s, i).astype(np.float64)   # Upscale
+                    O_C_S_Theta[i][_s][k] = np.abs(OSigmaTheta[i][k].astype(np.float64) - upscaled_Os_Theta)   # Absolute Diff
         
         
         result = {}
@@ -240,87 +239,84 @@ class Itti_Koch_Model():
         return lpf
 
     def convolution(self, w: np.ndarray, img: np.ndarray):
-        result = img.copy()
-
-        grayscale = False
-
-        if len(result.shape) == 2:
-            grayscale = True
-        
-        for i in range(2, img.shape[0] - 2):
-            for j in range(2, img.shape[1] - 2):
-                if grayscale == True:
-                    result[i,j] = 0
-                    for m in range(-2, 3):
-                        for n in range(-2, 3):
-                            result[i,j] += w[m + 2, n + 2] * img[i + m, j + n]
-                else:
-                    result[i, j, ...] = 0
-                    for k in range(3):
-                        for m in range(-2, 3):
-                            for n in range(-2, 3):
-                                result[i, j, k] += w[m + 2, n + 2] * img[i + m, j + n, k]
+        result = cv2.filter2D(img, -1, w, borderType = cv2.BORDER_CONSTANT)
+        assert result.shape == img.shape
 
         return result
 
-    def fsd_laplacian(self, img: np.ndarray, n: int):
-        fsd_low_passed = {}
-        fsd_laplacian = {}
-        fsd_low_passed[0] = img
+    def fsdLaplacian(self, img: np.ndarray, n: int):
+        """
+            Implement a FSD Laplacian pyramid
+            Input:
+                `img`: The input image
+                `n`: The scales of downsampling
+            Result:
+                A tuple (gaussian, laplacian) pyramids
+        """
+
+        fsdLowPassedPyr = {}
+        fsdLaplacianPyr = {}
+        fsdLowPassedPyr[0] = img   # At scale 0, we have the original image.
 
         for i in range(1, n):
-            g_0 = self.convolution(self.get_lpf(), fsd_low_passed[i-1])
-            fsd_laplacian[i-1] = fsd_low_passed[i-1] - g_0
+            g0 = self.convolution(self.getLPF(), fsdLowPassedPyr[i-1])     # Convolve the low pass filter with the previous image.
+            fsdLaplacianPyr[i-1] = fsdLowPassedPyr[i-1] - g0  # The difference is the laplacian at previous scale.
 
-            new_dim = (fsd_laplacian[i-1].shape[1] // 2, fsd_laplacian[i-1].shape[0] // 2)
+            newDim = (fsdLaplacianPyr[i-1].shape[1] // 2, fsdLaplacianPyr[i-1].shape[0] // 2) # The gaussian at current scale will be downsampled to this dim.
 
-            fsd_low_passed[i] = cv2.resize(g_0, new_dim)
+            fsdLowPassedPyr[i] = cv2.resize(g0, newDim)   # Downsample and store.
         
-        fsd_laplacian[n-1] = fsd_low_passed[n-1]
-        return (fsd_low_passed, fsd_laplacian)
+        fsdLaplacianPyr[n-1] = fsdLowPassedPyr[n-1]   # The last laplacian is the same as the gaussian.
+
+        return (fsdLowPassedPyr, fsdLaplacianPyr)
 
     def orientedGaborPyramid(self, img: np.ndarray, anglesN, pyramidDepth): 
         """
             Returns a oriented gabor pyramid of `img` and angles specified by angles_n.
             Input:
                 `img`: The input image.
-                `angleN`: How many equally spaced angles
+                `angleN`: How many equally spaced angles. 
+                            Each angle is identified by, 90 * (i-1)/2 in degrees, for i in [1, angleN].
                 `pyramidDepth: Max depth or scale of a pyramid
-
+            Returns:
+                A dictionary containing, (scale, (angleId, img)) tuples.
         """
         r = img[:, :, self.RED_CHANNEL].astype(np.float64)
         g = img[:, :, self.GREEN_CHANNEL].astype(np.float64)
         b = img[:, :, self.BLUE_CHANNEL].astype(np.float64)
         I = (r + g + b) / 3
 
-        oriented_features = {}
+        orientedFeatures = {}
 
         fsdLowPassed, laplacian = self.fsdLaplacian(I, pyramidDepth)
         
         for p, img in laplacian.items():
             orientedFeatures[p] = {}
-            for alpha in range(1, angles_n + 1):
-                img_i = img.astype(np.complex128)
+            for alpha in range(1, anglesN + 1):
+                imgI = img.astype(np.complex128)
+
                 for j in range(img.shape[1]):
                     for i in range(img.shape[0]):
-                        x = j - img.shape[1] // 2
+                        x = j - img.shape[1] // 2   # Centers of the image.
                         y = i - img.shape[0] // 2
 
-                        r = np.array([x, y])
-                        theta = np.pi/4 * (alpha - 1)
+                        r = np.array([x, y])    
+                        theta = np.pi/4 * (alpha - 1)   # The angle in radians.
+                        k = np.pi / 2 * np.array([np.cos(theta), np.sin(theta)])    
+                        multiplier = np.dot(k, r)  # The modulating signal.
+                        imgI[i, j] = img[i, j] * np.exp(1j * multiplier)    # Modulation.
+                        
+                orientedFeatures[p][alpha] = self.convolution(self.getLPF(), imgI.real)
 
-                        k = np.pi / 2 * np.array([np.cos(theta), np.sin(theta)])
-
-                        multiplier = np.dot(k, r)
-
-                        img_i[i, j] = img[i, j] * np.exp(1j * multiplier)
-                        # print(img_i.shape)
-                oriented_features[p][alpha] = self.convolution(self.get_lpf(), img_i.real)
-        return oriented_features
+        return orientedFeatures
     
-    def map_normalization(self, img: np.ndarray):
+    def mapNorm(self, img: np.ndarray):
         """
-            TODO: Write description
+            Apply a map normalization operator that promotes global maxes
+            Input:
+                `img`: A gray scale image.
+            Output:
+                The normalized map.
         """
         assert len(img.shape) == 2, f'The input image should have single channel'
 
@@ -329,20 +325,25 @@ class Itti_Koch_Model():
         img = (img - img.min()) / (img.max() - img.min()) * 255
         
         # Step 2. Finding global maxima and average of local maxima
-        global_maxima = img.max()
-        local_maxima = self.local_maximas(img)
+        globalMax = img.max()
+        localMaxAvg = self.localMaximas(img)
 
         # Step 3. Multiplication.
-        img = img * np.square(global_maxima-local_maxima)
+        img = img * np.square(globalMax-localMaxAvg)
         return img
 
-    def local_maximas(self, img: np.ndarray):
+    def localMaximas(self, img: np.ndarray):
         """
-            TODO: Write description.
+            Find the average of local maximas
+            Input:
+                `img`: The input image.
+            Output:
+                The average of local maximas in a (5 x 5) windows.
         """
 
         sums_ = 0
         count = 0
+
         for i in range(0, img.shape[0], 1):
             if i + 5 > img.shape[0]:
                 break
@@ -350,23 +351,22 @@ class Itti_Koch_Model():
                 if j + 5 > img.shape[1]:
                     break
                 
-                window = img[i : i + 5, j : j + 5].copy()
-                
+                window = img[i : i + 5, j : j + 5].copy()        
                 sums_ += window.max()
                 count += 1
                 assert window.shape[0] == 5 and window.shape[1] == 5
+
         return sums_ / count
     
-    def merge_intensity_maps(self, I_cs: dict):
+    def mergeIntensityMaps(self, I_C_S: dict):
         result = None
-        for c, temp_dict in I_cs.items():
-            for s, img in temp_dict.items():
-                # result = None
-                img = self.map_normalization(img)
 
+        for c, tempDict in I_C_S.items():   # Loop over finer scales.
+            for s, img in tempDict.items(): # Loop over scale scales.
+                img = self.mapNorm(img)
                 if c < 4:
-                    new_dim = (img.shape[1] // (1 << (4 - c)), img.shape[0] // (1 << (4 - c)))
-                    img = cv2.resize(img, new_dim)
+                    newDim = (img.shape[1] // (1 << (4 - c)), img.shape[0] // (1 << (4 - c)))
+                    img = cv2.resize(img, newDim)
                 
                 assert c <= 4
 
@@ -376,36 +376,29 @@ class Itti_Koch_Model():
                     result += img
         return result
     
-    def merge_color_maps(self, BY_cs: dict, RG_cs: dict):
+    def mergeColorMaps(self, BY_C_S: dict, RG_C_S: dict):
         result = None
+
         for c in (2, 3, 4):
             for _delta in (3, 4):
                 s = c + _delta
-
-                BY_map = self.map_normalization(BY_cs[c][s])
-                RG_map = self.map_normalization(RG_cs[c][s])
-
-                img = BY_map + RG_map
-                # print(f'\nc: {c}, s: {s}')
-                # print(img.shape)
-                
+                BYMap = self.mapNorm(BY_C_S[c][s])
+                RGMap = self.mapNorm(RG_C_S[c][s])
+                img = BYMap + RGMap
                 if c < 4:
-                    new_dim = (img.shape[1] // (1 << (4 - c)), img.shape[0] // (1 << (4 - c)))
-                    img = cv2.resize(img, new_dim)
-                    # print(f'After resize: {img.shape}')
+                    newDim = (img.shape[1] // (1 << (4 - c)), img.shape[0] // (1 << (4 - c)))
+                    img = cv2.resize(img, newDim)
             
                 assert c <= 4
+
                 if result is None:
                     result = img
                 else:
-                    # print(c, s)
-                    # print(img.shape)
-                    # print(result.shape)
                     result += img
         return result
     
-    def merge_orientation_maps(self, O_cs_theta: dict):
-        temp_result = None
+    def mergeOrientationMaps(self, O_C_S_Theta: dict):
+        tempResult = None
 
         for angle in (1, 2, 3, 4):
             temp = None
@@ -413,11 +406,11 @@ class Itti_Koch_Model():
                 for _delta in (3, 4):
                     s = c + _delta
 
-                    img = self.map_normalization(O_cs_theta[c][s][angle])
+                    img = self.mapNorm(O_C_S_Theta[c][s][angle])
 
                     if c < 4:
-                        new_dim = (img.shape[1] // (1 << (4 - c)), img.shape[0] // (1 << (4 - c)))
-                        img = cv2.resize(img, new_dim)
+                        newDim = (img.shape[1] // (1 << (4 - c)), img.shape[0] // (1 << (4 - c)))
+                        img = cv2.resize(img, newDim)
             
                     assert c <= 4
 
@@ -425,29 +418,32 @@ class Itti_Koch_Model():
                         temp = img
                     else:
                         temp += img
-            temp = self.map_normalization(temp)
-            if temp_result is None:
-                temp_result = temp
+            temp = self.mapNorm(temp)
+
+            if tempResult is None:
+                tempResult = temp
             else:
-                temp_result += temp
-        return temp_result
+                tempResult += temp
+
+        return tempResult
     
-    def get_saliency_map(self, img: np.ndarray):
+    def saliencyMap(self, img: np.ndarray):
+        """
+            Check if img can handle being downsampled.
+        """
+
+        img = cv2.resize(img, (512, 512))
         pyramids = self.extractVisualFeatures(img, list(range(0, 9)))
-        orientation = self.get_oriented_gabor_pyramid(img, 4, 9)
-        
+        orientation = self.orientedGaborPyramid(img, 4, 9)        
         pyramids['orientation_pyr'] = orientation
 
-        intensity = pyramids['intensity_pyr']
-        # colors = visual_features[1:5]
+        pyramids = self.acrossScaleDiff(pyramids)
+        IBar = self.mergeIntensityMaps(pyramids['I_C_S'])
+        CBar = self.mergeColorMaps(pyramids['BY_C_S'], pyramids['RG_C_S'])
+        OBar = self.mergeOrientationMaps(pyramids['O_C_S_Theta'])
 
-        (I_cs, BY_cs, RG_cs, O_cs_theta) = self.calculate_across_scale_differences(pyramids)
-        I_bar = self.merge_intensity_maps(I_cs)
-        C_bar = self.merge_color_maps(BY_cs, RG_cs)
-        O_bar = self.merge_orientation_maps(O_cs_theta)
+        sMap = (IBar + CBar + OBar) / 3
+        sMap = cv2.normalize(sMap, sMap, 0, 255, cv2.NORM_MINMAX)
 
-        saliency_map = (I_bar + C_bar + O_bar) / 3
-        saliency_map = cv2.normalize(saliency_map, saliency_map, 0, 255, cv2.NORM_MINMAX)
-
-        return saliency_map
+        return sMap
 

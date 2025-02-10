@@ -7,6 +7,7 @@ import numpy as np
 import os
 import sys
 import logging
+import math
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
@@ -19,20 +20,20 @@ def getImageLoss(
     img: np.ndarray, 
     groundTruth: tuple, 
     model: Itti_Koch_Model, 
-    normalized: bool, 
+    normalized, 
     logger):
     """
         Get the error between ground truth and predicted fixation point for a single image.
     """
 
-    sMap = model.get_saliency_map(img)
-    assert sMap.shape[0] == 1, f'Expected sMap to have a single color channel, found {s_map.shape[0]}'
+    sMap = model.saliencyMap(img)
+    # assert sMap.shape[2] == 1, f'Expected sMap to have a single color channel, found {sMap.shape[0]}'
     
     logger.info(f'[getImageFixation] sMap has single channel')
     
-    fixationPt = np.argmax(s_map)
+    fixationPt = np.argmax(sMap)
     
-    assert type(fixationPt) == int
+    assert type(fixationPt) == np.int64, f'Expected fixationPt to be of type int, found {type(fixationPt)}'
 
     # Get 2D index instead of a flat index.
     fixationPt = np.unravel_index(fixationPt, sMap.shape)
@@ -43,15 +44,20 @@ def getImageLoss(
     
     fixationPt = list(fixationPt)
     groundTruth = list(groundTruth)
+    
+    # print(f'fixationPt: {fixationPt[0]}, {fixationPt[1]}')
+    # print(f'groundTruth: {groundTruth[0]}, {groundTruth[1]}')
 
     if normalized:
         fixationPt[0] /= sMap.shape[0]
         fixationPt[1] /= sMap.shape[1]
 
-        groundTruth[0] /= sMap.shape[0]
-        groundTruth[1] /= sMap.shape[1]
+        groundTruth[0] /= img.shape[0]
+        groundTruth[1] /= img.shape[1]
     
-    return np.hypot(np.array(fixationPt), np.array(groundTruth))
+    # print(f'fixationPt: {fixationPt[0]}, {fixationPt[1]}')
+    # print(f'groundTruth: {groundTruth[0]}, {groundTruth[1]}')
+    return np.hypot(fixationPt[0] - groundTruth[0], fixationPt[1] - groundTruth[1])
 
 def getVideoLoss(
     frames: list, 
@@ -63,10 +69,41 @@ def getVideoLoss(
         Get the average error over all frames in the video
     """
 
+    # First see if any NaNs are there
+    for i in range(0, len(groundTruths)):
+        if math.isnan(groundTruths[i][0]) or math.isnan(groundTruths[i][1]):
+            previousExists = None 
+            if i > 0: 
+                previousExists = True 
+            else: 
+                previousExists = False
+
+            nextExists = None
+            if i < len(groundTruths) - 1: 
+                nextExists = True 
+            else: 
+                nextExists = False
+            
+            if previousExists == False and nextExists == False:
+                groundTruths[i][0] = 0
+                groundTruths[i][1] = 0
+            elif previousExists == False and nextExists == True:
+                groundTruths[i] = groundTruths[iruths[i - 1][0] + groundTruths[i + 1][0]) / 2 + 1]
+            elif previousExists == True and nextExists == False:
+                groundTruths[i] = groundTruths[i - 1]
+            else:
+                groundTruths[i][0] = (groundTruths[i-1][0] + groundTruths[i + 1][0]) / 2
+                groundTruths[i][1] = (groundTruths[i - 1][0] + groundTruths[i + 1][0]) / 2
+            
     errorSum = 0
-    print(frames)
-    for frame, groundTruth in zip(frames, groundTruths):
-        errorSum += getImageLoss(frame, groundTruth, model, normalized, logger)
+    n = len(frames)
+
+    for i, (frame, groundTruth) in enumerate(zip(frames, groundTruths)):
+        loss =  getImageLoss(frame, groundTruth, model, normalized, logger)
+        print(f'Processing frame {i + 1}/{n}... loss: {loss}')
+
+        errorSum += loss
+        
 
     return errorSum / len(frames)
 
@@ -98,3 +135,5 @@ if __name__ == '__main__':
         True,
         logger
     )
+
+    print(f'loss: {loss}')

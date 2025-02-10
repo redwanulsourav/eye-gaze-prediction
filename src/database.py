@@ -23,5 +23,9 @@ if __name__ == '__main__':
             if len(command) == 3:
                 print(db.findmin(command[1], command[2]))
             else:
-                print(db.findmin(command[2]))
+                print(db.findmin('',command[1]))
+        elif command[0] == 'findargmin':
+            print(db.findargmin('', command[1]))
+        elif command[0] == 'findbestepoch':
+            run_id = 
         
