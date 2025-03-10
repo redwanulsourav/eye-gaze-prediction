@@ -36,7 +36,7 @@ class vgg19_features(nn.Module):
         conv7 = self.feature_list[16](relu6)
         relu7 = self.feature_list[17](conv7)
         pool3 = self.feature_list[18](relu7)
-
+        # Shape is 28x28x256
         conv8 = self.feature_list[19](pool3)
         relu8 = self.feature_list[20](conv8)
         conv9 = self.feature_list[21](relu8)
@@ -64,7 +64,11 @@ class ExtractFeatures():
         ])
 
     def get_features(self, x):
+        print('called')
+        # print(f'{x.shape}')
         x = self.transformation(x)
+        # print('ashche')
+        # x = x.float()
         x = self.feature_extractor_model.forward(x)
         # print(f'{x.shape}')
         x = torch.flatten(x)

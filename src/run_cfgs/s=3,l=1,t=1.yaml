@@ -5,5 +5,5 @@ dataset:
   batch_size: 1
 model:
   type: 1
-optimizer: 
+optimizer:
   lr: 0.001

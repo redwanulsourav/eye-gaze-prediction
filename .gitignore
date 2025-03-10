@@ -170,3 +170,7 @@ journal/
 runs_wo_pretrained/
 nohup.out
 run_logs
+src/runs2
+tests/res/outputs/*
+tests/res/images
+src/plotting_scripts/plots

@@ -1,8 +1,8 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
+import logging
 
-# PyTorch TensorBoard support
 from torch.utils.data import DataLoader
 
 from datetime import datetime
@@ -16,8 +16,9 @@ import json
 import glob
 
 from dataset import GazeDataset
-from models import GazeNet
+from models import GazeNet2
 
+logger = logging.getLogger(__name__)
 
 def train_one_epoch(training_loader, optimizer, loss_fn, model, device):
     loss_sum = 0
@@ -38,6 +39,7 @@ def train_one_epoch(training_loader, optimizer, loss_fn, model, device):
         gaze_x = data['gaze_x'].to(device)
         gaze_y = data['gaze_y'].to(device)
         
+        # print(type(feature_x))
         optimizer.zero_grad()
         outputs = model(feature_x, gaze_x)
         
@@ -55,7 +57,8 @@ def train_one_epoch(training_loader, optimizer, loss_fn, model, device):
         H["running_loss"].append(loss.item())
 
         print(f'{i} / {data_length} Loss: {loss.item()}')
-    
+        logger.info(f'{i} / {data_length} Loss: {loss.item()}')
+
     H['train_xs'] = train_xs
     H['train_ys'] = train_ys
     H['predicted_xs'] = predicted_xs
@@ -78,6 +81,9 @@ def prepare_dirs(output_path: str):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level = logging.DEBUG, filename = 'mymodel.log')
+    logger = logging.getLogger(__name__)
+    
     ap = argparse.ArgumentParser()
     ap.add_argument('-c', '--cfg', help = 'Train run cfg', required = True)
     ap.add_argument('-o', '--output', help = 'Path to store output', default = 'runs')
@@ -87,20 +93,18 @@ if __name__ == '__main__':
         run_configuration = yaml.safe_load(f)
     run_id = prepare_dirs(ap.output)
     
-    gaze_dataset = GazeDataset(persons=        run_configuration['dataset']['persons'], 
-                               stride=         run_configuration['dataset']['stride'], 
+    gaze_dataset = GazeDataset(stride=         run_configuration['dataset']['stride'], 
                                length =        run_configuration['dataset']['length'],
-                               start_sample=   0,
-                               videos=         ['1'],
-                               base_path =     '/data/rsourave/datasets/extracted/ERB3_Stimuli_Extracted')
+                               videos=         [2],
+                               basePath =     '/data/rsourave/datasets/GTEA')
     training_loader = DataLoader(gaze_dataset, batch_size=1)
 
-   
+    
                         
     training_loader = DataLoader(gaze_dataset, batch_size=1)
-
+    print(len(training_loader))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = GazeNet(length =        run_configuration['dataset']['length'], 
+    model = GazeNet2(length =        run_configuration['dataset']['length'], 
                     model_type =    run_configuration['model']['type']).to(device)
     
     if 'weights' in run_configuration:
