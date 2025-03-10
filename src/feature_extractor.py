@@ -64,7 +64,7 @@ class ExtractFeatures():
         ])
 
     def get_features(self, x):
-        print('called')
+        # print('called')
         # print(f'{x.shape}')
         x = self.transformation(x)
         # print('ashche')

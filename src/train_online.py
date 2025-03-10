@@ -20,54 +20,48 @@ from models import GazeNet2
 
 logger = logging.getLogger(__name__)
 
-def train_one_epoch(training_loader, optimizer, loss_fn, model, device):
+def train_one_epoch(train_loader, optim, loss_fn, model, dev):
     loss_sum = 0
-    batch_loss_sum = 0
-
-    data_length = len(training_loader)
+    
+    data_len = len(train_loader)
 
     H = {
         "running_loss": []
     }
-    train_xs = []
-    train_ys = []
-    predicted_xs = []
-    predicted_ys = []
+    gt_xs = []
+    gt_ys = []
+    pred_xs = []
+    pred_ys = []
 
-    for i, data in enumerate(training_loader):
-        feature_x = data['features'].to(device)
-        gaze_x = data['gaze_x'].to(device)
-        gaze_y = data['gaze_y'].to(device)
+    for i, data in enumerate(train_loader):
+        feat_x = data['features'].to(dev)
+        gaze_x = data['gaze_x'].to(dev)
+        gaze_y = data['gaze_y'].to(dev)
         
-        print(feature_x.shape)
-        print(gaze_x.shape)
-        print(gaze_y.shape)
+        optim.zero_grad()
+        outputs = model(feat_x, gaze_x)
         
-        optimizer.zero_grad()
-        outputs = model(feature_x, gaze_x)
-        
-        print(outputs.shape)
-        train_xs.append(gaze_y[0].tolist()[0][0])
-        train_ys.append(gaze_y[0].tolist()[0][1])
-        predicted_xs.append(outputs[0].tolist()[0][0])
-        predicted_ys.append(outputs[0].tolist()[0][1])
+        gt_xs.append(gaze_y[0].tolist()[0][0])
+        gt_ys.append(gaze_y[0].tolist()[0][1])
+        pred_xs.append(outputs[0].tolist()[0][0])
+        pred_ys.append(outputs[0].tolist()[0][1])
         
         loss = loss_fn(outputs, gaze_y)
         loss.backward()
 
-        optimizer.step()
+        optim.step()
 
         loss_sum += loss.item()
         H["running_loss"].append(loss.item())
 
-        print(f'{i} / {data_length} Loss: {loss.item()}')
-        logger.info(f'{i} / {data_length} Loss: {loss.item()}')
+        print(f'{i} / {data_len} Loss: {loss.item()}')
+        logger.info(f'{i} / {data_len} Loss: {loss.item()}')
 
-    H['train_xs'] = train_xs
-    H['train_ys'] = train_ys
-    H['predicted_xs'] = predicted_xs
-    H['predicted_ys'] = predicted_ys
-    return loss_sum / data_length, H['running_loss'], H['train_xs'], H['train_ys'], H['predicted_xs'], H['predicted_ys']
+    H['gt_xs'] = gt_xs
+    H['gt_ys'] = gt_ys
+    H['pred_xs'] = pred_xs
+    H['pred_ys'] = pred_ys
+    return loss_sum / data_len, H['running_loss'], H['gt_xs'], H['gt_ys'], H['pred_xs'], H['pred_ys']
 
 
 def prepare_dirs(output_path: str):
@@ -78,40 +72,44 @@ def prepare_dirs(output_path: str):
     os.makedirs(f'{output_path}/{run_id}/history')
     os.makedirs(f'{output_path}/{run_id}/weights')
     os.makedirs(f'{output_path}/{run_id}/epochs')
-
-    os.system(f'cp {ap.cfg} {output_path}/{run_id}/run_config.yaml')
+    os.makedirs(f'{output_path}/{run_id}/src')
+    os.system(f'cp models.py {output_path}/{run_id}/src/models.py')
+    os.system(f'cp train_online.py {output_path}/{run_id}/src/train_online.py')   # TODO: Make this dynamic
+    os.system(f'cp {ap.cfg} {output_path}/{run_id}/config.yaml')
     
     return run_id
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level = logging.DEBUG, filename = 'mymodel.log')
-    logger = logging.getLogger(__name__)
-    
     ap = argparse.ArgumentParser()
-    ap.add_argument('-c', '--cfg', help = 'Train run cfg', required = True)
+    ap.add_argument('-c', '--cfg', help = 'Train config [.yaml]', required = True)
     ap.add_argument('-o', '--output', help = 'Path to store output', default = 'runs')
     ap = ap.parse_args()
 
     with open(ap.cfg) as f:
-        run_configuration = yaml.safe_load(f)
-    run_id = prepare_dirs(ap.output)
-    
-    gaze_dataset = GazeDataset(stride=         run_configuration['dataset']['stride'], 
-                               length =        run_configuration['dataset']['length'],
-                               videos=         [0],
-                               basePath =     '/data/rsourave/datasets/GTEA')
-    training_loader = DataLoader(gaze_dataset, batch_size=1)
+        config = yaml.safe_load(f)
 
+    run_id = prepare_dirs(ap.output)
+
+    logging.basicConfig(level = logging.DEBUG, filename = f'{ap.output}/{run_id}/log')
+    logger = logging.getLogger(__name__)
     
-                        
-    training_loader = DataLoader(gaze_dataset, batch_size=1)
+    
+    gaze_dataset = GazeDataset(stride=          config['stride'], 
+                               length =         config['length'],
+                               videos=          config['videos'] if 'videos' in config else [0],
+                               basePath =       config['base_path'],
+                               viewers =        config['viewers'] if 'viewers' in config else [0])
+    
+    training_loader = DataLoader(gaze_dataset,  config['batch_size'])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = GazeNet2(length =        run_configuration['dataset']['length'], 
-                    model_type =    run_configuration['model']['type'],
-                    stride = run_configuration['dataset']['stride']).to(device)
     
-    if 'weights' in run_configuration:
+    model = GazeNet2(
+                    length =        config['length'], 
+                    model_type =    config['model_type'],
+                    stride =        config['stride']).to(device)
+    
+    if 'weights' in config:
         if os.path.exists(run_configuration['weights']['weights_path']) == True:
             model.load_state_dict(torch.load(run_configuration['weights']['weights_path']))
             print('Pretrained model loaded')
@@ -121,20 +119,19 @@ if __name__ == '__main__':
     model.train()
 
     loss_fn = torch.nn.MSELoss()
-    print(run_configuration['optimizer']['lr'])
-    optim = torch.optim.Adagrad(model.parameters(), lr=run_configuration['optimizer']['lr'])
+    optim = torch.optim.Adagrad(model.parameters(), lr=config['lr'])
 
     print(f'Run ID: {run_id}')
     
-    avg_loss, running_losses, train_xs, train_ys, predicted_xs, predicted_ys = \
+    avg_loss, running_losses, gt_xs, gt_ys, pred_xs, pred_ys = \
                     train_one_epoch(training_loader, optim, loss_fn, model, device)
     H = {
-        "average_loss": avg_loss,
+        "avg_loss": avg_loss,
         "running_losses": running_losses,
-        "train_xs": train_xs, 
-        "train_ys": train_ys,
-        "predicted_xs": predicted_xs,
-        "predicted_ys": predicted_ys
+        "gt_xs": train_xs, 
+        "gt_ys": train_ys,
+        "pred_xs": pred_xs,
+        "pred_ys": pred_ys
     }    
         
     with open(f'{ap.output}/{run_id}/history.json', 'w') as f:
@@ -142,4 +139,5 @@ if __name__ == '__main__':
 
     print(f'Average Loss: {avg_loss}')
         
-    torch.save(model.state_dict(), f'{ap.output}/{run_id}/weights.pt')
+    torch.save(model.state_dict(), f'{ap.output}/{run_id}/model_state.pt')
+    torch.save(optim.state_dict(), f'{ap.output}/{run_id}/optim_state.pt')
