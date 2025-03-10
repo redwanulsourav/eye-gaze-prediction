@@ -39,8 +39,8 @@ if __name__ == '__main__':
 		frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 		gazeJson[key] = {}
 		gazeJson[key][0] = {}
-
-		f = open(f'/data/rsourave/datasets/GTEA/raw/Gaze/{videoName.split('.')[0]}-Glasses-Data.tsv', 'r')
+		videoFileName = videoName.split('.')[0]
+		f = open(f'/data/rsourave/datasets/GTEA/raw/Gaze/{videoFileName}-Glasses-Data.tsv', 'r')
 		contents = f.read()
 		contents = contents.split('\n')
 		contents = contents[22:]
@@ -118,6 +118,10 @@ if __name__ == '__main__':
 			avgX = sumX
 			avgY = sumY
 
+			if avgX == 0 and avgY == 0:
+				avgX = 360
+				avgY = 240
+				
 			gazeJson[key][0][i]['x'] = avgX
 			gazeJson[key][0][i]['y'] = avgY
 	with open(f'/data/rsourave/datasets/GTEA/processed/gaze/gaze_order.json', 'w') as f:

@@ -39,14 +39,18 @@ def train_one_epoch(training_loader, optimizer, loss_fn, model, device):
         gaze_x = data['gaze_x'].to(device)
         gaze_y = data['gaze_y'].to(device)
         
-        # print(type(feature_x))
+        print(feature_x.shape)
+        print(gaze_x.shape)
+        print(gaze_y.shape)
+        
         optimizer.zero_grad()
         outputs = model(feature_x, gaze_x)
         
-        train_xs.append(gaze_y[0].tolist()[0])
-        train_ys.append(gaze_y[0].tolist()[1])
-        predicted_xs.append(outputs[0].tolist()[0])
-        predicted_ys.append(outputs[0].tolist()[1])
+        print(outputs.shape)
+        train_xs.append(gaze_y[0].tolist()[0][0])
+        train_ys.append(gaze_y[0].tolist()[0][1])
+        predicted_xs.append(outputs[0].tolist()[0][0])
+        predicted_ys.append(outputs[0].tolist()[0][1])
         
         loss = loss_fn(outputs, gaze_y)
         loss.backward()
@@ -95,17 +99,17 @@ if __name__ == '__main__':
     
     gaze_dataset = GazeDataset(stride=         run_configuration['dataset']['stride'], 
                                length =        run_configuration['dataset']['length'],
-                               videos=         [2],
+                               videos=         [0],
                                basePath =     '/data/rsourave/datasets/GTEA')
     training_loader = DataLoader(gaze_dataset, batch_size=1)
 
     
                         
     training_loader = DataLoader(gaze_dataset, batch_size=1)
-    print(len(training_loader))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = GazeNet2(length =        run_configuration['dataset']['length'], 
-                    model_type =    run_configuration['model']['type']).to(device)
+                    model_type =    run_configuration['model']['type'],
+                    stride = run_configuration['dataset']['stride']).to(device)
     
     if 'weights' in run_configuration:
         if os.path.exists(run_configuration['weights']['weights_path']) == True:

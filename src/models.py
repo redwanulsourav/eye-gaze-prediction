@@ -161,18 +161,13 @@ class TemporalFeatureNet2(nn.Module):
         super().__init__()
         self.fc1 = nn.Linear(in_channels, 32)
         self.relu1 = nn.ReLU()
-        self.instanceNorm1 = nn.InstanceNorm1d(32)
+        self.layerNorm1 = nn.LayerNorm((32,))
     def forward(self, x):
         x = torch.flatten(x)
         feature_size = x.shape[0]
-        # print(x.shape)
         x = x.view(-1, feature_size)
-        # x = x.unsqueeze(0)
-        # print(x.shape)
-        # print(x.shape)
         x = self.fc1(x)
-        # prin  t(x.shape)
-        x = self.instanceNorm1(x)
+        x = self.layerNorm1(x)
         x = torch.tanh(x)
         return x
 
@@ -185,49 +180,50 @@ class TemporalGazeNet2(nn.Module):
         self.fc1 = nn.Linear(36, 16)
         self.relu2 = nn.ReLU()
         self.fc2 = nn.Linear(16, 8)
-        self.instanceNorm1 = nn.InstanceNorm1d(8)
+        self.layerNorm1 = nn.LayerNorm((8,))
     def forward(self, x):
         output, (h_n, c_n) = self.lstm(x)
+        h_n = h_n.squeeze(0)
         x = self.relu1(h_n)
         x = self.relu1(self.fc1(x))
         x = self.fc2(x)
-        x = self.instanceNorm1(x)
+        x = self.layerNorm1(x)
         x = torch.tanh(x)
         return x
 
 class GazePredictor2(nn.Module):
-    def __init__(self):
+    def __init__(self, stride):
         super().__init__()
+        self.stride = stride
         self.fc1 = nn.Linear(in_features=32+8, out_features=32)
-        self.instanceNorm1 = nn.InstanceNorm1d(32)
+        self.layerNorm1 = nn.LayerNorm((32,))
         self.relu1 = nn.ReLU()
         self.fc2 = nn.Linear(in_features=32, out_features=16)
-        self.instanceNorm2 = nn.InstanceNorm1d(16)
+        self.layerNorm2 = nn.LayerNorm((16,))
         self.relu2 = nn.ReLU()
         self.fc3 = nn.Linear(in_features=16, out_features=8)
-        self.instanceNorm3 = nn.InstanceNorm1d(8)
+        self.layerNorm3 = nn.LayerNorm((8,))
         self.relu3 = nn.ReLU()
-        self.fc4 = nn.Linear(in_features=8, out_features=4)
-        self.instanceNorm4 = nn.InstanceNorm1d(4)
+        self.fc4 = nn.Linear(in_features=8, out_features=2 * stride)
+        self.layerNorm4 = nn.LayerNorm((2 * stride,))
         self.relu4 = nn.ReLU()
-        self.fc5 = nn.Linear(in_features=4, out_features=2)
-        self.instanceNorm5 = nn.InstanceNorm1d(2)
-
+        
     def forward(self, x):
-        x = self.relu1(self.instanceNorm1(self.fc1(x)))
-        x = self.relu2(self.instanceNorm2(self.fc2(x)))
-        x = self.relu3(self.instanceNorm3(self.fc3(x)))
-        x = self.relu4(self.instanceNorm4(self.fc4(x)))
-        x = torch.sigmoid(self.instanceNorm5(self.fc5(x)))
+        x = self.relu1(self.layerNorm1(self.fc1(x)))
+        x = self.relu2(self.layerNorm2(self.fc2(x)))
+        x = self.relu3(self.layerNorm3(self.fc3(x)))
+        x = self.layerNorm4(self.fc4(x))
+        x = x.view(-1, self.stride, 2)
+        x = torch.sigmoid(x)
         return x
 
 
 class GazeNet2(nn.Module):
-    def __init__(self, length, model_type: int):
+    def __init__(self, length, model_type: int, stride: int):
         super().__init__()
         self.temporal_feature_net = TemporalFeatureNet2(100352*length)
         self.temporal_gaze_net = TemporalGazeNet2()
-        self.gaze_predictor = GazePredictor2()
+        self.gaze_predictor = GazePredictor2(stride)
 
         self.model_type = model_type
 
@@ -243,9 +239,10 @@ class GazeNet2(nn.Module):
                 param.requires_grad = False
 
     def forward(self, x_features, x_gaze):
-        x_features = torch.flatten(self.temporal_feature_net(x_features))
+        x = self.temporal_feature_net(x_features)
+        x = torch.flatten(x)
         x_gaze = torch.flatten(self.temporal_gaze_net(x_gaze))
-        x = torch.cat([x_features, x_gaze])
+        x = torch.cat([x, x_gaze])
         x = x.unsqueeze(0)
         x = self.gaze_predictor(x)
         return x

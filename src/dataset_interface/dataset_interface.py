@@ -17,7 +17,11 @@ class DatasetInterface():
         self.videoHeight = None
         self.videoJson = None
         self.gazeJson = None
-        # TODO: Cache loaded frames
+        self.frameCache = None
+        self.cachedVideoId = None
+        self.cachedViewerId = None
+        self.cached = False
+
         with open(self.videoJsonPath, 'r') as f:
             contents = f.read()
             self.videoJson = json.loads(contents)
@@ -32,6 +36,14 @@ class DatasetInterface():
                 so that we don't have load video each time this
                 function is called.
         """
+        # Cache frames
+        if self.cached == False or self.cachedVideoId != videoIdx:
+            print('cache miss')
+            self.getAllFrames(videoIdx)
+
+        if self.cached == True and self.cachedVideoId == videoIdx:
+            return len(self.cachedFrames)
+
         videoPath = self.videoJson[str(videoIdx)]
         
         cap = cv2.VideoCapture(f'{self.datasetPath}/processed/videos/{videoPath}')
@@ -40,6 +52,14 @@ class DatasetInterface():
         return totalFrames
     
     def getFrame(self, videoIdx: int, frameIdx: int):
+        # Cache frames
+        if self.cached == False or self.cachedVideoId != videoIdx:
+            print('cache miss')
+            self.getAllFrames(videoIdx)
+
+        if self.cached == True and self.cachedVideoId == videoIdx:
+            return self.cachedFrames[frameIdx]
+
         videoPath = self.videoJson[str(videoIdx)]
 
         cap = cv2.VideoCapture(f'{self.datasetPath}/processed/videos/{videoPath}')
@@ -57,6 +77,8 @@ class DatasetInterface():
         return frame
     
     def getAllFrames(self, videoIdx: int):
+        if self.cached == True and self.cachedVideoId == videoIdx:
+            return self.cachedFrames
         videoPath = self.videoJson[str(videoIdx)]
 
         cap = cv2.VideoCapture(f'{self.datasetPath}/processed/videos/{videoPath}')
@@ -72,17 +94,34 @@ class DatasetInterface():
             allFrames.append(frame)
             read, frame = cap.read()
         
+        self.cached = True
+        self.cachedVideoId = videoIdx
+        self.cachedFrames = allFrames
         return allFrames
     
     def getGazeLocation(self, videoIdx: int, frameIdx: int, viewerIdx: int):
+        # Cache frames
+        if self.cached == False or self.cachedVideoId != videoIdx:
+            print('cache miss')
+            self.getAllFrames(videoIdx)
+
         gaze = self.gazeJson[str(videoIdx)][str(viewerIdx)][str(frameIdx)]
         return (gaze['x'], gaze['y'])
     
     def getViewerCount(self, videoIdx: int):
+        # Cache frames
+        if self.cached == False or self.cachedVideoId != videoIdx:
+            self.getAllFrames(videoIdx)
+
         gaze = self.gazeJson[str(videoIdx)]
         return len(gaze)
     
     def getAllGazeOfSingleViewer(self, videoIdx: int, viewerIdx: int):
+        # Cache frames
+        if self.cached == False or self.cachedVideoId != videoIdx:
+            print('cache miss')
+            self.getAllFrames(videoIdx)
+
         frameCount = self.getFrameCount(videoIdx)
         
         allGaze = []

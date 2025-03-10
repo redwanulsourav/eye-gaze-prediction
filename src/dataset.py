@@ -15,7 +15,7 @@ class GazeDataset(Dataset):
         self, 
         basePath='', 
         viewers = [0], 
-        stride = 0, 
+        stride = 1, 
         videos = ['clip_3'], 
         length = 30, 
         startSample = 0):
@@ -34,13 +34,14 @@ class GazeDataset(Dataset):
                         break
                     
                     self.index.append({
-                        'frame_start_frame': i,
-                        'frame_end_frame': i + length - 1,  # Inclusive
+                        'start_frame': i,
+                        'end_frame': i + length - 1,  # Inclusive
                         'video_idx': video,
-                        'gaze_start_frame': i,
-                        'gaze_end_frame': i + length - 1,    # Inclusive
+                        'start_gaze': i,
+                        'end_gaze': i + length - 1,    # Inclusive
                         'viewer_id': p,
-                        'gaze_y_idx': i + length - 1 + stride
+                        'target_gaze_start': (i + length - 1) + 1,
+                        'target_gaze_end': (i + length - 1) + stride  # inclusive
                     })
         
         # self.index = self.index[start_sample:]
@@ -54,13 +55,14 @@ class GazeDataset(Dataset):
             return torch.tensor([0])
         
         videoIdx = self.index[idx]['video_idx']
-        startFrameIdx = self.index[idx]['frame_start_frame']
-        endFrameIdx = self.index[idx]['frame_end_frame']
+        startFrameIdx = self.index[idx]['start_frame']
+        endFrameIdx = self.index[idx]['end_frame']
         
-        startGazeIdx = self.index[idx]['gaze_start_frame']
-        endGazeIdx = self.index[idx]['gaze_end_frame']
+        startGazeIdx = self.index[idx]['start_gaze']
+        endGazeIdx = self.index[idx]['end_gaze']
         viewerIdx = self.index[idx]['viewer_id']
-        gazeYIdx = self.index[idx]['gaze_y_idx']
+        targetGazeStart = self.index[idx]['target_gaze_start']
+        targetGazeEnd = self.index[idx]['target_gaze_end']
         
         videoFrames = self.datasetInterface.getAllFrames(videoIdx = videoIdx)[startFrameIdx: endFrameIdx + 1]
         videoWidth, videoHeight = videoFrames[0].size
@@ -72,8 +74,9 @@ class GazeDataset(Dataset):
         gazeData = [torch.tensor([x / videoHeight, y / videoWidth]) for (x, y) in gazeData]
         gazeData = torch.stack(gazeData)
         
-        gazeY = self.datasetInterface.getGazeLocation(videoIdx = videoIdx, frameIdx = gazeYIdx, viewerIdx = viewerIdx)
-        gazeY = torch.tensor([gazeY[0] / videoHeight, gazeY[1] / videoWidth])
+        gazeY = self.datasetInterface.getAllGazeOfSingleViewer(videoIdx = videoIdx, viewerIdx = viewerIdx)[targetGazeStart: targetGazeEnd + 1]
+        gazeY = [torch.tensor([x[0] / videoHeight, x[1] / videoWidth]) for x in gazeY]
+        gazeY = torch.stack(gazeY)
         
         result_dict = {
             'features': videoFrames.float(),
