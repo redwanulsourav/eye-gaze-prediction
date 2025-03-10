@@ -1,9 +1,0 @@
-dataset:
-  persons: [0]
-  stride: 10
-  length: 1
-  batch_size: 1
-model:
-  type: 0
-optimizer:
-  lr: 0.001
