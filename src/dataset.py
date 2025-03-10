@@ -12,19 +12,28 @@ from dataset_interface.dataset_interface import DatasetInterface
 
 class GazeDataset(Dataset):
     def __init__(
-        self, 
-        basePath='', 
+        self, rootPath = '', 
         viewers = [0], 
-        stride = 1, 
-        videos = ['clip_3'], 
+        stride = 0, 
+        videos = [0], 
         length = 30, 
-        startSample = 0):
+        startFrame = 0):
+        """
+            Inputs:
+                rootPath (str) -> Folder containing the `raw` and `processed` folders
+                viewers (list) -> Indices of viewers of the video
+                stride (list) -> Prediction distance
+                videos (list) -> Indices of the videos
+                length (int) -> Past history frame length
+                startFrame (int) -> Which frame to start from.
+        """
+
+        self.rootPath = rootPath
+        self.featureExtractor = ExtractFeatures()
+        self.startFrame = startFrame
+        self.datasetInterface = DatasetInterface(rootPath)
 
         self.index = []
-        self.basePath = basePath
-        self.featureExtractor = ExtractFeatures()
-        self.startSample = startSample
-        self.datasetInterface = DatasetInterface(basePath)
 
         for p in viewers:
             for idx, video in enumerate(videos):
@@ -43,9 +52,6 @@ class GazeDataset(Dataset):
                         'target_gaze_start': (i + length - 1) + 1,
                         'target_gaze_end': (i + length - 1) + stride  # inclusive
                     })
-        
-        # self.index = self.index[start_sample:]
-                
     
     def __len__(self):
         return len(self.index)
