@@ -169,3 +169,4 @@ journal.md
 journal/
 runs_wo_pretrained/
 nohup.out
+run_logs
