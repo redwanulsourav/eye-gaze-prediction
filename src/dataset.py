@@ -57,7 +57,7 @@ class GazeDataset(Dataset):
         return len(self.index)
 
     def __getitem__(self, idx):
-        if idx < self.startSample:
+        if idx < self.startFrame:
             return torch.tensor([0])
         
         videoIdx = self.index[idx]['video_idx']
@@ -70,8 +70,8 @@ class GazeDataset(Dataset):
         targetGazeStart = self.index[idx]['target_gaze_start']
         targetGazeEnd = self.index[idx]['target_gaze_end']
         
-        videoFrames = self.datasetInterface.getAllFrames(videoIdx = videoIdx)[startFrameIdx: endFrameIdx + 1]
-        videoWidth, videoHeight = videoFrames[0].size
+        videoFrames = self.datasetInterface.getRangeFrames(videoIdx = videoIdx, start = startFrameIdx, end = endFrameIdx + 1)
+        videoHeight, videoWidth = videoFrames[0].shape[0:2]
         videoFrames = [self.featureExtractor.get_features(frame) for frame in videoFrames]
         videoFrames = torch.stack(videoFrames)
         
