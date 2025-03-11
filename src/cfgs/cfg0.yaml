@@ -1,0 +1,9 @@
+stride: 1
+length: 2
+model_type: 0
+videos: 
+  - 0
+base_path: '/data/rsourave/datasets/GTEA'
+batch_size: 1
+lr: 0.001
+shuffle: true

@@ -1,6 +1,7 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
+import logging
 
 from torch.utils.data import DataLoader
 
@@ -15,98 +16,145 @@ import json
 import glob
 
 from dataset import GazeDataset
-from models import GazeNet
+from models import GazeNet2
 
+torch.manual_seed(0)
 
-def train_one_epoch(epoch_index, training_loader, optimizer, loss_fn, model, device):
+def train_one_epoch(epoch, train_loader, optim, loss_fn, model, dev, output_path, logger = None):
+    startTime = time.time()
     loss_sum = 0
-    batch_loss_sum = 0
+    
+    data_len = len(train_loader)
 
     H = {
         "running_loss": []
     }
-    
-    for i, data in enumerate(training_loader):
-        feature_x = data['features'].to(device)
-        gaze_x = data['gaze_x'].to(device)
-        gaze_y = data['gaze_y'].to(device)
+    gt_xs = []
+    gt_ys = []
+    pred_xs = []
+    pred_ys = []
+
+    for i, data in enumerate(train_loader):
+        start_event = torch.cuda.Event(enable_timing=True)
+        end_event = torch.cuda.Event(enable_timing=True)
+        start_event.record()
+        feat_x = data['features'].to(dev)
+        gaze_x = data['gaze_x'].to(dev)
+        gaze_y = data['gaze_y'].to(dev)
         
-        optimizer.zero_grad()
-
-        outputs = model(feature_x, gaze_x)
-
+        optim.zero_grad()
+        outputs = model(feat_x, gaze_x)
+        
+        gt_xs.append(gaze_y[0].tolist()[0][0])
+        gt_ys.append(gaze_y[0].tolist()[0][1])
+        pred_xs.append(outputs[0].tolist()[0][0])
+        pred_ys.append(outputs[0].tolist()[0][1])
+        
         loss = loss_fn(outputs, gaze_y)
         loss.backward()
 
-        optimizer.step()
+        optim.step()
 
         loss_sum += loss.item()
         H["running_loss"].append(loss.item())
+        end_event.record()
+        torch.cuda.synchronize()
+        print(f'{i} / {data_len} Loss: {loss.item()}, took {start_event.elapsed_time(end_event)} seconds')
+        if logger is not None:
+            logger.info(f'Epoch {epoch}: {i} / {data_len} Loss: {loss.item()}, took {start_event.elapsed_time(end_event)} seconds')
 
-    return loss_sum / len(training_loader), H['running_loss']
-
-def prepare_dirs():
-    os.makedirs(f'runs/', exist_ok = True)
-    run_id = len(os.listdir('runs/'))
+    H = {
+        "avg_loss": loss_sum / data_len,
+        "running_losses": running_losses,
+        "gt_xs": gt_xs, 
+        "gt_ys": gt_ys,
+        "pred_xs": pred_xs,
+        "pred_ys": pred_ys
+    }    
     
-    os.makedirs(f'runs/{run_id}/')
-    os.makedirs(f'runs/{run_id}/history')
-    os.makedirs(f'runs/{run_id}/weights')
-    os.makedirs(f'runs/{run_id}/epochs')
+    endTime = time.time()
+    seconds = endTime - startTime
+    os.makedirs(f'{output_path}/{run_id}/epochs/{epoch}')
+    with open(f'{output_path}/{run_id}/epochs/{epoch}/history.json', 'w') as f:
+        json.dump(H, f)
 
-    os.system(f'cp {ap.cfg} runs/{run_id}/run_config.yaml')
+    torch.save(model.state_dict(), f'{output_path}/{run_id}/epochs/{epoch}/model_state.pt')
+    torch.save(optim.state_dict(), f'{output_path}/{run_id}/epochs/{epoch}/optim_state.pt')
+    
+    return loss_sum / data_len, H['running_loss'], H['gt_xs'], H['gt_ys'], H['pred_xs'], H['pred_ys'], seconds
+
+
+def prepare_dirs(output_path: str, cfg_path):
+    os.makedirs(f'{output_path}/', exist_ok = True)
+    run_id = len(os.listdir(f'{output_path}/'))
+    
+    os.makedirs(f'{output_path}/{run_id}/')
+    os.makedirs(f'{output_path}/{run_id}/history')
+    os.makedirs(f'{output_path}/{run_id}/weights')
+    os.makedirs(f'{output_path}/{run_id}/epochs')
+    os.makedirs(f'{output_path}/{run_id}/src')
+    os.system(f'cp models.py {output_path}/{run_id}/src/models.py')
+    os.system(f'cp train_online.py {output_path}/{run_id}/src/train.py')   # TODO: Make this dynamic
+    os.system(f'cp {cfg_path} {output_path}/{run_id}/config.yaml')
     
     return run_id
 
+
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument('-c', '--cfg', help='Train run cfg', required = True)
+    ap.add_argument('-c', '--cfg', help = 'Train config [.yaml]', required = True)
+    # ap.add_argument('-o', '--output', help = 'Path to store output', default = 'runs')
     ap = ap.parse_args()
-    
-    run_id = prepare_dirs()
 
     with open(ap.cfg) as f:
-        run_cfg = yaml.safe_load(f)
+        config = yaml.safe_load(f)
+
+    run_id = prepare_dirs(config['output_dir'], ap.cfg)
+
+    logging.basicConfig(level = logging.DEBUG, filename = f'{config["output_dir"]}/{run_id}/log')
+    logger = logging.getLogger(__name__)
     
     
-    start_epoch = 0
-    end_epoch = 50
-    batch_size = 1
- 
-    gaze_dataset = GazeDataset(
-                               persons=run_cfg['dataset']['persons'], 
-                               stride=run_cfg['dataset']['stride'], 
-                               length = run_cfg['dataset']['length'],
-                               start_sample = 0,
-                               videos=['1'],
-                               base_path = '/data/rsourave/datasets/extracted/ERB3_Stimuli_Extracted')
-    training_loader = DataLoader(gaze_dataset, batch_size=batch_size, shuffle = True)
+    gaze_dataset = GazeDataset(stride=          config['stride'], 
+                               length =         config['length'],
+                               videos=          config['videos'] if 'videos' in config else [0],
+                               rootPath =       config['base_path'],
+                               viewers =        config['viewers'] if 'viewers' in config else [0])
+    
+    # print(f"Batch Size: {config['batch_size']}")
+    train_loader = DataLoader(
+            gaze_dataset,  
+            batch_size = config['batch_size'], 
+            shuffle = config['shuffle'] if 'shuffle' in config else True)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = GazeNet(length = run_cfg['dataset']['length'], model_type = run_cfg['model']['type']).to(device)
+    
+    model = GazeNet2(
+                    length =        config['length'], 
+                    model_type =    config['model_type'],
+                    stride =        config['stride']).to(device)
+    
+    epochs = config['epochs'] if 'epochs' in config else 2
+    # if 'weights' in config:
+    #     if os.path.exists(run_configuration['weights']['weights_path']) == True:
+    #         model.load_state_dict(torch.load(run_configuration['weights']['weights_path']))
+    #         print('Pretrained model loaded')
+    #     else:
+    #         print('Pretrained weights not found')
+        
     model.train()
 
     loss_fn = torch.nn.MSELoss()
-    optim = torch.optim.Adagrad(model.parameters(), lr=run_cfg['optimizer']['lr'])
+    optim = torch.optim.Adagrad(model.parameters(), lr=config['lr'])
 
     print(f'Run ID: {run_id}')
     
+    for i in range(0, epochs):
+        avg_loss, running_losses, gt_xs, gt_ys, pred_xs, pred_ys, seconds = \
+                    train_one_epoch(i, train_loader, optim, loss_fn, model, device, logger)
+
+        print(f'[{i}/{epochs}] Average Loss: {avg_loss}, took {seconds} seconds')
+        logger.info(f'[{i}/{epochs}] Average Loss: {avg_loss} took {seconds} seconds')
+
+        
     
-    for i in range(start_epoch, end_epoch + 1):
-        model.train()
-        avg_loss, current_running_loss = train_one_epoch(i, training_loader, optim, loss_fn, model, device)
-        running_losses = current_running_loss
-        
-        H = {
-            "average_loss": avg_loss,
-            "running_losses": running_losses,
-        }
-        os.makedirs(f'runs/{run_id}/epochs/{i}/')
-        with open(f'runs/{run_id}/epochs/{i}/history.json', 'w') as f:
-            json.dump(H, f)
-        
-        torch.save(model.state_dict(), f'runs/{run_id}/epochs/{i}/weights.pt')
-        torch.save(optim.state_dict(), f'runs/{run_id}/epochs/{i}/optim.pt')
-        print(f'Epoch {i}/{end_epoch + 1}: Loss: {avg_loss}')
-
-

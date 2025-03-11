@@ -163,9 +163,7 @@ class TemporalFeatureNet2(nn.Module):
         self.relu1 = nn.ReLU()
         self.layerNorm1 = nn.LayerNorm((32,))
     def forward(self, x):
-        x = torch.flatten(x)
-        feature_size = x.shape[0]
-        x = x.view(-1, feature_size)
+        x = torch.flatten(x, start_dim = 1)
         x = self.fc1(x)
         x = self.layerNorm1(x)
         x = torch.tanh(x)
@@ -240,9 +238,7 @@ class GazeNet2(nn.Module):
 
     def forward(self, x_features, x_gaze):
         x = self.temporal_feature_net(x_features)
-        x = torch.flatten(x)
-        x_gaze = torch.flatten(self.temporal_gaze_net(x_gaze))
-        x = torch.cat([x, x_gaze])
-        x = x.unsqueeze(0)
+        x_gaze = self.temporal_gaze_net(x_gaze)
+        x = torch.cat([x, x_gaze], dim = 1)
         x = self.gaze_predictor(x)
         return x
