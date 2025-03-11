@@ -98,7 +98,7 @@ if __name__ == '__main__':
     gaze_dataset = GazeDataset(stride=          config['stride'], 
                                length =         config['length'],
                                videos=          config['videos'] if 'videos' in config else [0],
-                               basePath =       config['base_path'],
+                               rootPath =       config['base_path'],
                                viewers =        config['viewers'] if 'viewers' in config else [0])
     
     training_loader = DataLoader(gaze_dataset,  config['batch_size'])
