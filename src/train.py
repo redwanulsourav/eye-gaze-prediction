@@ -29,6 +29,7 @@ def train_one_epoch(epoch, train_loader, optim, loss_fn, model, dev, output_path
     H = {
         "running_loss": []
     }
+
     gt_xs = []
     gt_ys = []
     pred_xs = []
@@ -42,6 +43,10 @@ def train_one_epoch(epoch, train_loader, optim, loss_fn, model, dev, output_path
         gaze_x = data['gaze_x'].to(dev)
         gaze_y = data['gaze_y'].to(dev)
         
+        assert torch.isnan(feat_x).any() == False
+        assert torch.isnan(gaze_x).any() == False
+        assert torch.isnan(gaze_y).any() == False, f'{gaze_y} has nan'
+
         optim.zero_grad()
         outputs = model(feat_x, gaze_x)
         
@@ -53,6 +58,8 @@ def train_one_epoch(epoch, train_loader, optim, loss_fn, model, dev, output_path
         loss = loss_fn(outputs, gaze_y)
         loss.backward()
 
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
+
         optim.step()
 
         loss_sum += loss.item()
@@ -60,12 +67,13 @@ def train_one_epoch(epoch, train_loader, optim, loss_fn, model, dev, output_path
         end_event.record()
         torch.cuda.synchronize()
         print(f'{i} / {data_len} Loss: {loss.item()}, took {start_event.elapsed_time(end_event)} seconds')
+        print(f'{gaze_y} {gaze_x}')
         if logger is not None:
             logger.info(f'Epoch {epoch}: {i} / {data_len} Loss: {loss.item()}, took {start_event.elapsed_time(end_event)} seconds')
 
-    H = {
+    H1 = {
         "avg_loss": loss_sum / data_len,
-        "running_losses": running_losses,
+        "running_losses": H["running_loss"],
         "gt_xs": gt_xs, 
         "gt_ys": gt_ys,
         "pred_xs": pred_xs,
@@ -81,7 +89,7 @@ def train_one_epoch(epoch, train_loader, optim, loss_fn, model, dev, output_path
     torch.save(model.state_dict(), f'{output_path}/{run_id}/epochs/{epoch}/model_state.pt')
     torch.save(optim.state_dict(), f'{output_path}/{run_id}/epochs/{epoch}/optim_state.pt')
     
-    return loss_sum / data_len, H['running_loss'], H['gt_xs'], H['gt_ys'], H['pred_xs'], H['pred_ys'], seconds
+    return loss_sum / data_len, H1['running_losses'], H1['gt_xs'], H1['gt_ys'], H1['pred_xs'], H1['pred_ys'], seconds
 
 
 def prepare_dirs(output_path: str, cfg_path):
@@ -135,12 +143,6 @@ if __name__ == '__main__':
                     stride =        config['stride']).to(device)
     
     epochs = config['epochs'] if 'epochs' in config else 2
-    # if 'weights' in config:
-    #     if os.path.exists(run_configuration['weights']['weights_path']) == True:
-    #         model.load_state_dict(torch.load(run_configuration['weights']['weights_path']))
-    #         print('Pretrained model loaded')
-    #     else:
-    #         print('Pretrained weights not found')
         
     model.train()
 

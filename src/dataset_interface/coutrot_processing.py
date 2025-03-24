@@ -3,6 +3,7 @@ import scipy.io
 import os
 import shutil
 import json
+import math
 
 # TODO: Write some echo to update about progress.
 
@@ -53,7 +54,13 @@ if __name__ == '__main__':
 
                 x = data[0][j][i]
                 y = data[1][j][i]
-        
+
+                if math.isnan(x):
+                    x = 360
+                if math.isnan(y):
+                    y = 576/2
+                
+                # assert math.isnan(x)
                 gazeJson[key][i][j]['x'] = x
                 gazeJson[key][i][j]['y'] = y
 

@@ -77,11 +77,11 @@ class GazeDataset(Dataset):
         
         gazeData = self.datasetInterface.getAllGazeOfSingleViewer(videoIdx = videoIdx, viewerIdx = viewerIdx)
         gazeData = gazeData[startGazeIdx: endGazeIdx + 1]
-        gazeData = [torch.tensor([x / videoHeight, y / videoWidth]) for (x, y) in gazeData]
+        gazeData = [torch.tensor([min(x / videoHeight, 1), min(y / videoWidth, 1)]) for (x, y) in gazeData]
         gazeData = torch.stack(gazeData)
         
         gazeY = self.datasetInterface.getAllGazeOfSingleViewer(videoIdx = videoIdx, viewerIdx = viewerIdx)[targetGazeStart: targetGazeEnd + 1]
-        gazeY = [torch.tensor([x[0] / videoHeight, x[1] / videoWidth]) for x in gazeY]
+        gazeY = [torch.tensor([min(x[0] / videoHeight, 1), min(x[1] / videoWidth, 1)]) for x in gazeY]
         gazeY = torch.stack(gazeY)
         
         result_dict = {

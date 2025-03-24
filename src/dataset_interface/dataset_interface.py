@@ -17,11 +17,7 @@ class DatasetInterface():
         self.videoHeight = None
         self.videoJson = None
         self.gazeJson = None
-        # self.frameCache = None
-        # self.cachedVideoId = None
-        # self.cachedViewerId = None
-        # self.cached = False
-
+        
         with open(self.videoJsonPath, 'r') as f:
             contents = f.read()
             self.videoJson = json.loads(contents)
