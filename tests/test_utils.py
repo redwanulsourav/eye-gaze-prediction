@@ -24,7 +24,7 @@ class test_UnitEval(unittest.TestCase):
         try:
             shutil.rmtree(self.savedModelRoot)
         except Exception as e:
-            print(f'Exception: {e}')
+            pass
 
     def test_createEvalDirs(self): 
         """ Should create necessary directories for eval """
@@ -46,4 +46,30 @@ class test_UnitEval(unittest.TestCase):
 
         """ The method should create pngPath """
         self.assertTrue(os.path.isdir(pngPath))
+    
+    def test_verifyEvalConfig(self):
+        """ Verify eval config file has necessary keys """
+
+        config = {
+            'run_id': 0,
+            'base_path_models': '',
+            'base_path_dataset': ''
+        }
+
+        config1 = {
+            'base_path_models': ''
+        }
+
+        config2 = {
+            'base_path_models': '',
+            'base_path_dataset': '',
+        }
+
+        with self.assertRaises(KeyError):
+            Utils.Eval.verifyEvalConfig(config1)
+        
+        with self.assertRaises(KeyError):
+            Utils.Eval.verifyEvalConfig(config2)
+        
+        Utils.Eval.verifyEvalConfig(config)
     

@@ -17,4 +17,10 @@ class Utils:
             os.makedirs(pngsPath)
 
             return evalPath
+        
+        def verifyEvalConfig(config: dict):
+            requiredKeys = ('run_id', 'base_path_models', 'base_path_dataset')
+            for key in requiredKeys:
+                if key not in config:
+                    raise KeyError(f'{key} is not in evalConfig')
             
