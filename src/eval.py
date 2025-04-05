@@ -36,5 +36,5 @@ def main(configPath):
 
     """ Verify train config """
     # Utils.Train.verifyTrainConfig(trainConfig)
-
     
+

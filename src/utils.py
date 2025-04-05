@@ -1,4 +1,5 @@
 import os
+import random
 
 class Utils:
     class Eval:
@@ -19,8 +20,34 @@ class Utils:
             return evalPath
         
         def verifyEvalConfig(config: dict):
-            requiredKeys = ('run_id', 'base_path_models', 'base_path_dataset')
+            requiredKeys = ('run_id', 'base_path_model', 'base_path_dataset')
             for key in requiredKeys:
                 if key not in config:
                     raise KeyError(f'{key} is not in evalConfig')
+                
+        def mergeTrainEvalConfig(evalConfig: dict, trainConfig: dict):
+            mergedConfig = {}
+
+            mergedConfig['base_path_model'] = evalConfig['base_path_model']
+            mergedConfig['base_path_dataset'] = evalConfig['base_path_dataset']
+            mergedConfig['run_id'] = evalConfig['run_id']
+
+            if 'videos' not in evalConfig:
+                mergedConfig['videos'] = [random.choice(trainConfig['videos'])]
+            else:
+                mergedConfig['videos'] = evalConfig['videos']
+            
+            if 'viewers' not in evalConfig:
+                mergedConfig['viewers'] = [random.choice(trainConfig['viewers'])]
+            else:
+                mergedConfig['viewers'] = evalConfig['viewers']
+            
+            mergedConfig['length'] = trainConfig['length']
+            mergedConfig['model_type'] = trainConfig['model_type']
+            mergedConfig['stride'] = trainConfig['stride']
+            
+            return mergedConfig
+            
+
+            
             
