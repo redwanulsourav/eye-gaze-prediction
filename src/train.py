@@ -67,7 +67,7 @@ def train_one_epoch(epoch, train_loader, optim, loss_fn, model, dev, output_path
         end_event.record()
         torch.cuda.synchronize()
         print(f'{i} / {data_len} Loss: {loss.item()}, took {start_event.elapsed_time(end_event)} seconds')
-        print(f'{gaze_y} {gaze_x}')
+        # print(f'{gaze_y} {gaze_x}')
         if logger is not None:
             logger.info(f'Epoch {epoch}: {i} / {data_len} Loss: {loss.item()}, took {start_event.elapsed_time(end_event)} seconds')
 
@@ -153,7 +153,7 @@ if __name__ == '__main__':
     
     for i in range(0, epochs):
         avg_loss, running_losses, gt_xs, gt_ys, pred_xs, pred_ys, seconds = \
-                    train_one_epoch(i, train_loader, optim, loss_fn, model, device, logger)
+                    train_one_epoch(i, train_loader, optim, loss_fn, model, device, config['output_dir'], logger)
 
         print(f'[{i}/{epochs}] Average Loss: {avg_loss}, took {seconds} seconds')
         logger.info(f'[{i}/{epochs}] Average Loss: {avg_loss} took {seconds} seconds')
