@@ -20,7 +20,7 @@ from utils import Utils
 
 
 
-def main(configPath):
+def getConfig(configPath):
     """ Load eval config """
     with open(configPath, 'r') as f:
         evalConfig = yaml.safe_load(f)
@@ -36,5 +36,12 @@ def main(configPath):
 
     """ Verify train config """
     # Utils.Train.verifyTrainConfig(trainConfig)
+
+    config = Utils.Eval.mergeTrainEvalConfig(evalConfig, trainConfig)
+    return config
+
+def main(configPath):
+    config = getConfig(configPath)
     
+
 
