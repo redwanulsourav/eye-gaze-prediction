@@ -2,6 +2,7 @@ import os
 import random
 
 from models import GazeNet2
+from dataset import GazeDataset
 
 class Utils:
     class Eval:
@@ -12,6 +13,10 @@ class Utils:
                 raise FileNotFoundError
             
             evalPath = os.path.join(savedModelsRoot, runId, 'evals', 'eval0')
+            os.makedirs(evalPath, exist_ok = True)
+            evalId = len(os.listdir(evalPath))
+            evalPath = os.path.join(evalPath, str(evalId))
+            
             picklesPath = os.path.join(evalPath, 'pickles')
             pngsPath = os.path.join(evalPath, 'pngs')
 
@@ -19,7 +24,7 @@ class Utils:
             os.makedirs(picklesPath)
             os.makedirs(pngsPath)
 
-            return evalPath
+            return evalPath, picklesPath, pngsPath
         
         def verifyEvalConfig(config: dict):
             requiredKeys = ('run_id', 'base_path_model', 'base_path_dataset')

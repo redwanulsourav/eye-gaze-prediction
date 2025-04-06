@@ -1,7 +1,7 @@
 base_path: /data/rsourave/datasets/Coutrot
 batch_size: 6
 epochs: 10
-length: 2
+length: 3
 lr: 0.001
 model_type: 1
 shuffle: true
