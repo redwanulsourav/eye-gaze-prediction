@@ -1,6 +1,8 @@
 import os
 import random
 
+from models import GazeNet2
+
 class Utils:
     class Eval:
         def createEvalDirs(savedModelsRoot: str, runId: str) -> str:
@@ -47,4 +49,16 @@ class Utils:
             mergedConfig['stride'] = trainConfig['stride']
             
             return mergedConfig
+        
+    class Common:
+        def loadModel(config: dict):
+            return GazeNet2(length = config['length'], 
+                            model_type = config['model_type'],
+                            stride = config['stride'])
             
+        def loadDataset(config: dict):
+            return GazeDataset(stride = config['stride'], 
+                               length = config['length'],
+                               videos = config['videos'] if 'videos' in config else [0],
+                               rootPath = config['base_path_dataset'],
+                               viewers = config['viewers'] if 'viewers' in config else [0])
