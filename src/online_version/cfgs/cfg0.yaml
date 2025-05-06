@@ -1,0 +1,14 @@
+base_path: /data/rsourave/datasets/Coutrot
+batch_size: 1
+epochs: 10
+length: 1
+lr: 0.001
+model_type: 0
+shuffle: true
+stride: 32
+videos:
+- 1
+viewers:
+- 0
+output_dir: /data/rsourave/saved_models/Coutrot/
+
