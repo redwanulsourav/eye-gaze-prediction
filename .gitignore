@@ -174,3 +174,6 @@ src/runs2
 tests/res/outputs/*
 tests/res/images
 src/plotting_scripts/plots
+*.jpg
+*.ppm
+*.bz2
