@@ -1,9 +1,16 @@
-stride: 1
-length: 2
-model_type: 0
-videos: 
-  - 0
-base_path: '/data/rsourave/datasets/GTEA'
-batch_size: 1
+base_path: /data/rsourave/datasets/GTEA
+batch_size: 6
+epochs: 10
+length: 1
 lr: 0.001
+model_type: 0
 shuffle: true
+stride: 32
+videos:
+- 1
+- 11
+- 3
+viewers:
+- 0
+output_dir: /data/rsourave/saved_models/GTEA/
+

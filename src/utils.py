@@ -52,6 +52,7 @@ class Utils:
             mergedConfig['length'] = trainConfig['length']
             mergedConfig['model_type'] = trainConfig['model_type']
             mergedConfig['stride'] = trainConfig['stride']
+            mergedConfig['loss_fn'] = trainConfig['loss_fn']
             
             return mergedConfig
         

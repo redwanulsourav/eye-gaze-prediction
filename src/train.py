@@ -146,7 +146,7 @@ if __name__ == '__main__':
         
     model.train()
 
-    loss_fn = torch.nn.MSELoss()
+    loss_fn = torch.nn.MSELoss(reduction= config['loss_fn'] if 'loss_fn' in config else 'mean')
     optim = torch.optim.Adagrad(model.parameters(), lr=config['lr'])
 
     print(f'Run ID: {run_id}')

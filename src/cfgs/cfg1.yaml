@@ -1,16 +1,15 @@
-base_path: /data/rsourave/datasets/Coutrot
+base_path: /data/rsourave/datasets/GTEA
 batch_size: 6
 epochs: 10
-length: 3
+length: 1
 lr: 0.001
 model_type: 1
 shuffle: true
-stride: 10
+stride: 32
 videos:
 - 1
 - 11
 - 3
 viewers:
 - 0
-- 3
-output_dir: /data/rsourave/saved_models/Coutrot/
+output_dir: /data/rsourave/saved_models/GTEA/

@@ -242,3 +242,53 @@ class GazeNet2(nn.Module):
         x = torch.cat([x, x_gaze], dim = 1)
         x = self.gaze_predictor(x)
         return x
+
+
+
+
+
+class CNNFeatureExtractor(nn.Module):
+    def __init__(self, embed_dim=256):
+        super(CNNFeatureExtractor, self).__init__()
+        resnet = models.resnet18(pretrained=True)
+        self.backbone = nn.Sequential(*list(resnet.children())[:-2])  # up to last conv layer
+        # self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(512, embed_dim)
+
+    def forward(self, x):
+        x = self.backbone(x)
+        x = self.pool(x).view(x.size(0), -1)  # [B*T, 512]
+        return self.fc(x)  # [B*T, embed_dim]
+
+class GazeTransformer(nn.Module):
+    def __init__(self, embed_dim=256, num_heads=4, num_layers=4):
+        super(GazeTransformer, self).__init__()
+        self.cnn = CNNFeatureExtractor(embed_dim=embed_dim)
+        self.gaze_embed = nn.Linear(2, embed_dim)
+
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=embed_dim * 2, nhead=num_heads, batch_first=True
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+
+        self.regressor = nn.Sequential(
+            nn.Linear(embed_dim * 2, 64),
+            nn.ReLU(),
+            nn.Linear(64, 2)  # Predicted gaze coordinates
+        )
+
+    def forward(self, video_batch, gaze_batch):
+        # video_batch: [B, T, C, H, W]
+        # gaze_batch: [B, T, 2]
+
+        B, T, C, H, W = video_batch.size()
+        x = video_batch.view(B * T, C, H, W)           # [B*T, C, H, W]
+        visual_feats = self.cnn(x).view(B, T, -1)      # [B, T, D]
+        gaze_feats = self.gaze_embed(gaze_batch)       # [B, T, D]
+
+        fused = torch.cat([visual_feats, gaze_feats], dim=-1)  # [B, T, 2D]
+
+        encoded = self.transformer(fused)              # [B, T, 2D]
+        out = self.regressor(encoded[:, -1, :])        # Use last token's output
+
+        return out  # [B, 2]

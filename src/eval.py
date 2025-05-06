@@ -40,6 +40,7 @@ def getConfig(configPath):
     # Utils.Train.verifyTrainConfig(trainConfig)
 
     config = Utils.Eval.mergeTrainEvalConfig(evalConfig, trainConfig)
+    print(config)
     return config
 
 def main(configPath):
@@ -47,7 +48,7 @@ def main(configPath):
     dataset = Utils.Common.loadDataset(config)
     dataLoader = DataLoader(dataset, batch_size = 1, shuffle = False)
     model = Utils.Common.loadModel(config)
-    lossFn = torch.nn.MSELoss()
+    lossFn = torch.nn.MSELoss(reduction = config['loss_fn'])
     boundaries = [0, config['length'] - 1]
 
     evalPath, picklesPath, pngsPath = Utils.Eval.createEvalDirs(config['base_path_model'], str(config['run_id']))
@@ -69,7 +70,7 @@ def main(configPath):
         outputs = model(feat_x, gaze_x)
 
         loss = lossFn(outputs, gaze_y)
-        
+        print(loss.item())
         history[f'{boundaries[0]}-{boundaries[1]}'] = {}
         history[f'{boundaries[0]}-{boundaries[1]}']['loss'] = loss.item()
         history[f'{boundaries[0]}-{boundaries[1]}']['ground'] = gaze_y[0].tolist()
@@ -86,6 +87,7 @@ def main(configPath):
             assert prediction.shape == (1, 2)
 
             frameLoss = lossFn(groundTruth, prediction)
+            print(frameLoss.item())
             frameLosses.append(frameLoss)
        
         x = list(range(boundaries[1] + 1, boundaries[1] + config['stride'] + 1))
