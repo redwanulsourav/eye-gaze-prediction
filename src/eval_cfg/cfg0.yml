@@ -1,3 +1,7 @@
 base_path_model: '/data/rsourave/saved_models/Coutrot'
 base_path_dataset: '/data/rsourave/datasets/Coutrot'
-run_id: 0
+run_id: 37
+videos:
+- 1
+viewers:
+- 0
