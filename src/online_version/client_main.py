@@ -1,7 +1,7 @@
 import os
 import sys
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+import socket
+import threading
 
 import yaml
 import json
@@ -14,8 +14,21 @@ from torch.utils.data import DataLoader
 import cv2
 
 from dataset import GazeDataset
-# from client_messages import Message
-mq = posix_ipc.MessageQueue('/gp3_mq', flags = posix_ipc.O_CREX, max_messages = 20)
+
+def handleNewPrediction(conn, addr):
+    print(f'New connection from {addr}')
+    with conn:
+        while True:
+            data = conn.recv(1024)
+            if not data:
+                break
+            data = data.decode().rstrip('X')
+            data = json.loads(data)
+            
+            updatePredictedGaze(data)
+            
+
+
 
 def prepareDirs(outputPath: str, cfgPath):
     os.makedirs(f'{outputPath}/', exist_ok = True)
