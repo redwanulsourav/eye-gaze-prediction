@@ -39,30 +39,34 @@ if __name__ == '__main__':
     gazeJson = {}
 
     for key, videoName in videoJson.items():
-        data = mat['Coutrot_Database1'][0][0]['OriginalSounds'][videoName.split('.')[0]][0][0][0][0]['data']
-
+        print(videoName)
+        data = mat['Coutrot_Database1'][0][0]['OriginalSounds'][videoName.split('.')[0]][0][0]['data'][0][0]
+        info = mat['Coutrot_Database1'][0][0]['OriginalSounds'][videoName.split('.')[0]][0][0]['info'][0][0]
+        videoWidth = float(info['vidwidth'][0][0][0][0])
+        videoHeight = float(info['vidheight'][0][0][0][0])
+        nFrame = int(info['nframe'][0][0][0][0])
         # Viewer Count
         viewerCount = data.shape[2]
-        frameCount = data.shape[1]
+        # frameCount = data.shape[1]
         gazeJson[key] = {}
 
         for i in range(viewerCount):
             gazeJson[key][i] = {}
 
-            for j in range(frameCount):
+            for j in range(nFrame):
                 gazeJson[key][i][j] = {}
 
-                x = data[0][j][i]
-                y = data[1][j][i]
+                x = float(data[0][j][i])
+                y = float(data[1][j][i])
 
                 if math.isnan(x):
-                    x = 360
+                    x = videoWidth / 2
                 if math.isnan(y):
-                    y = 576/2
+                    y = videoHeight / 2
                 
                 # assert math.isnan(x)
-                gazeJson[key][i][j]['x'] = x
-                gazeJson[key][i][j]['y'] = y
+                gazeJson[key][i][j]['x'] = x / 720
+                gazeJson[key][i][j]['y'] = y / 576
 
     with open(f'{ap.dataset_root}/processed/gaze/gaze_order.json', 'w') as f:
         f.write(json.dumps(gazeJson))

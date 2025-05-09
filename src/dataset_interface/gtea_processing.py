@@ -5,42 +5,42 @@ import shutil
 
 if __name__ == '__main__':
 	try:
-		os.mkdir(f'/data/rsourave/datasets/GTEA/processed')
+		os.mkdir(f'/home/rsourave/data/datasets/GTEA/processed')
 	except:
 		print('`processed` directory already exists')
 
 	try:
-		os.mkdir(f'/data/rsourave/datasets/GTEA/processed/videos')
+		os.mkdir(f'/home/rsourave/data/datasets/GTEA/processed/videos')
 	except:
 		print('`videos` directory already exists')
 	
 	try:
-		os.mkdir(f'/data/rsourave/datasets/GTEA/processed/gaze')
+		os.mkdir(f'/home/rsourave/data/datasets/GTEA/processed/gaze')
 	except:
 		print('`gaze` directory already exists')
 
-	allVideos = os.listdir(f'/data/rsourave/datasets/GTEA/raw/Videos')
+	allVideos = os.listdir(f'/home/rsourave/data/datasets/GTEA/raw/Videos')
 	videoJson = {}
 
 	for i, video in enumerate(allVideos):
-		srcVideo = f'/data/rsourave/datasets/GTEA/raw/Videos/{video}'
-		dstVideo = f'/data/rsourave/datasets/GTEA/processed/videos/{video}'
+		srcVideo = f'/home/rsourave/data/datasets/GTEA/raw/Videos/{video}'
+		dstVideo = f'/home/rsourave/data/datasets/GTEA/processed/videos/{video}'
 
 		shutil.copy(srcVideo, dstVideo)
 		videoJson[i] = video
 	
-	with open(f'/data/rsourave/datasets/GTEA/processed/videos/video_order.json', 'w') as f:
+	with open(f'/home/rsourave/data/datasets/GTEA/processed/videos/video_order.json', 'w') as f:
 		f.write(json.dumps(videoJson))
 
 	gazeJson = {}
 	for key, videoName in videoJson.items():
 		viewerCount = 1
-		cap = cv2.VideoCapture(f'/data/rsourave/datasets/GTEA/processed/videos/{videoName}')
+		cap = cv2.VideoCapture(f'/home/rsourave/data/datasets/GTEA/processed/videos/{videoName}')
 		frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 		gazeJson[key] = {}
 		gazeJson[key][0] = {}
 		videoFileName = videoName.split('.')[0]
-		f = open(f'/data/rsourave/datasets/GTEA/raw/Gaze/{videoFileName}-Glasses-Data.tsv', 'r')
+		f = open(f'/home/rsourave/data/datasets/GTEA/raw/Gaze/{videoFileName}-Glasses-Data.tsv', 'r')
 		contents = f.read()
 		contents = contents.split('\n')
 		contents = contents[22:]
@@ -124,6 +124,6 @@ if __name__ == '__main__':
 				
 			gazeJson[key][0][i]['x'] = avgX
 			gazeJson[key][0][i]['y'] = avgY
-	with open(f'/data/rsourave/datasets/GTEA/processed/gaze/gaze_order.json', 'w') as f:
+	with open(f'/home/rsourave/data/datasets/GTEA/processed/gaze/gaze_order.json', 'w') as f:
 		f.write(json.dumps(gazeJson))
 
