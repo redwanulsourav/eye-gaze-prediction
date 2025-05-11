@@ -76,9 +76,9 @@ class DatasetInterface():
         videoPath = self.videoJson[str(videoIdx)]
 
         cap = cv2.VideoCapture(f'{self.datasetPath}/processed/videos/{videoPath}')
-        totalFrames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        totalFrames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
-        assert (start < totalFrames) and (end <= totalFrames), f'0 <= frameIdx < {totalFrames} is not satisfied.'
+        assert (start < totalFrames) and (end <= totalFrames), f'0 <= {frameIdx} < {totalFrames} is not satisfied.'
 
         cap.set(cv2.CAP_PROP_POS_FRAMES, start)
         i = start
