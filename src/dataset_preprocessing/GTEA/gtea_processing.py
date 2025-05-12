@@ -33,6 +33,12 @@ if __name__ == '__main__':
 		f.write(json.dumps(videoJson))
 
 	gazeJson = {}
+	""" Assumptions:
+		1. The Tobii eye tracker is synchronized with the video, that is the Tobii
+		eye tracker  starts recording as soon as the video starts.
+		2. 
+	"""
+
 	for key, videoName in videoJson.items():
 		viewerCount = 1
 		cap = cv2.VideoCapture(f'/data/rsourave/datasets/GTEA/processed/videos/{videoName}')

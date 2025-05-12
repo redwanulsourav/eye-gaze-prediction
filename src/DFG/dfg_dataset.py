@@ -47,6 +47,7 @@ class DFG_GTEA_Dataset(Dataset):
     
     def __len__(self):
         return len(self.index)
+        # return 4
 
     def __getitem__(self, idx):
         videoIdx = self.index[idx]['video_idx']
