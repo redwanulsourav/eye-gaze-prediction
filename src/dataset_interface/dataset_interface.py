@@ -25,6 +25,9 @@ class DatasetInterface():
         with open(self.gazeJsonPath, 'r') as f:
             contents = f.read()
             self.gazeJson = json.loads(contents)
+        
+    def getVideoCount(self):
+        return len(self.videoJson)
 
     def getFrameCount(self, videoIdx: int):
         """
@@ -120,7 +123,7 @@ class DatasetInterface():
         # if self.cached == False or self.cachedVideoId != videoIdx:
         #     print('cache miss')
         #     self.getAllFrames(videoIdx)
-
+        
         gaze = self.gazeJson[str(videoIdx)][str(viewerIdx)][str(frameIdx)]
         return (gaze['x'], gaze['y'])
     
@@ -139,10 +142,12 @@ class DatasetInterface():
         #     self.getAllFrames(videoIdx)
 
         frameCount = self.getFrameCount(videoIdx)
-        
         allGaze = []
 
         for i in range(int(frameCount)):
-            allGaze.append(self.getGazeLocation(videoIdx, i, viewerIdx))
+            try: 
+                allGaze.append(self.getGazeLocation(videoIdx, i, viewerIdx))
+            except:
+                print(f'{videoIdx}: {i} failed')
         
         return allGaze

@@ -10,6 +10,7 @@ import logging
 import math
 import json
 from sklearn.metrics import roc_auc_score
+import argparse
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
@@ -132,9 +133,27 @@ def evalVideo(videoId: int, personId: int, datasetInterface: DatasetInterface, m
     
     return getVideoLoss(videoFrames, gazeLocations, model, normalized, logger)
 
+def prepareOutputDirs(outputPath):
+    try:
+        os.mkdir(f'{outputPath}/saved_models/Itti_Koch/')
+    except:
+        print('Path already exists')
+    
+    
+    try:
+        os.mkdir(f'{outputPath}/saved_models/Itti_Koch/EGTEA')
+    except:
+        print('Path already exists')
+
 if __name__ == '__main__':
+    ap = argparse.ArgumentParser()
+    ap.add_argument('-o', '--output_path', required = True)
+    ap.add_argument('-r', '--dataset_root', required = True)
+    ap = ap.parse_args()
+
     model = IttiKochModel()
-    datasetInterface = DatasetInterface('/data/rsourave/datasets/Coutrot/')
+    datasetInterface = DatasetInterface(ap.dataset_root)
+    prepareOutputDirs(ap.output_path)
     logger = logging.getLogger(__name__)
     videoCount = datasetInterface.getVideoCount()
 
@@ -145,7 +164,6 @@ if __name__ == '__main__':
         viewerCount = datasetInterface.getViewerCount(videoIdx = i)
         for j in range(viewerCount):
             print(f'Processing video = {i}, viewer = {j}')
-            itti_koch_json[i][j] = evalVideo(i, j, datasetInterface, model, True, logger)
-    
-    with open('itti_koch_result.json', 'w') as f:
-        f.write(json.dumps(itti_koch_json))
+            result = evalVideo(i, j, datasetInterface, model, True, logger)
+            with open(f'{i}-{j}.json')  as f:   # videoId-personId
+                f.write(json.dumps(result))
