@@ -116,7 +116,7 @@ class IttiKochModel():
                 # upscaled_G_s = self.upscaleImage(GSigma[_s], _s, i)   
                 # upscaled_R_s = self.upscaleImage(RSigma[_s], _s, i)
                 diff = np.abs(gSigma[_s] - rSigma[_s])
-                temp = np.abs((rsigma[i] - gSigma[i]) - self.upscaleImage(diff, _s,i))
+                temp = np.abs((rSigma[i] - gSigma[i]) - self.upscaleImage(diff, _s,i))
                 rgCS[i][_s] = temp
 
                 angles = list(oSigmaTheta[list(oSigmaTheta.keys())[0]].keys())  # Retrieve the list of angles
@@ -356,10 +356,10 @@ class IttiKochModel():
         
         pyramids['orientation_pyr'] = orientation
 
-        for scale, pyr in orientation.items():
-            print(np.max(orientation[scale][1] - orientation[scale][2]))
-            for angle, img in pyr.items():
-                cv2.imwrite(f'{scale}-{angle}.jpg', self.minMaxNormalize(img)*255)
+        # for scale, pyr in orientation.items():
+        #     print(np.max(orientation[scale][1] - orientation[scale][2]))
+        #     for angle, img in pyr.items():
+        #         cv2.imwrite(f'{scale}-{angle}.jpg', self.minMaxNormalize(img)*255)
 
         result = {}
         result['pyramids'] = pyramids
@@ -373,9 +373,9 @@ class IttiKochModel():
         result['I_Bar'] = IBar
         result['C_Bar'] = CBar
         result['O_Bar'] = OBar
-        cv2.imwrite('IBar.jpg', (self.minMaxNormalize(IBar)*255).astype(np.uint8))
-        cv2.imwrite('CBar.jpg', (self.minMaxNormalize(CBar)*255).astype(np.uint8))
-        cv2.imwrite('OBar.jpg', (self.minMaxNormalize(OBar)*255).astype(np.uint8))
+        # cv2.imwrite('IBar.jpg', (self.minMaxNormalize(IBar)*255).astype(np.uint8))
+        # cv2.imwrite('CBar.jpg', (self.minMaxNormalize(CBar)*255).astype(np.uint8))
+        # cv2.imwrite('OBar.jpg', (self.minMaxNormalize(OBar)*255).astype(np.uint8))
         
         # print(OBar.shape)
         # cv2.imwrite('obar.jpg', OBar)
