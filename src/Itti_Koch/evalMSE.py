@@ -165,5 +165,5 @@ if __name__ == '__main__':
         for j in range(viewerCount):
             print(f'Processing video = {i}, viewer = {j}')
             result = evalVideo(i, j, datasetInterface, model, True, logger)
-            with open(f'{i}-{j}.json')  as f:   # videoId-personId
+            with open(f'{i}-{j}.json', 'w')  as f:   # videoId-personId
                 f.write(json.dumps(result))

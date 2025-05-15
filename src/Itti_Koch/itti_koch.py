@@ -160,29 +160,6 @@ class IttiKochModel():
         result['O_C_S_Theta'] = oCSTheta
         return result
 
-    def getLPF(self):
-        """
-            Get the separable low pass filter.
-            Input:
-                Empty
-            Result:
-                The (5 x 5) low pass filter
-        """
-
-        w = np.zeros((5,1), dtype=np.float64)
-        
-        w[2, 0] = 3/8      # Middle
-        
-        w[1, 0] = 0.25
-        w[3, 0] = 0.25
-        
-        w[0, 0] = 1/16
-        w[4, 0] = 1/16
-
-        lpf = np.matmul(w, w.transpose())
-
-        return lpf
-
     def convolution(self, w: np.ndarray, img: np.ndarray):
         result = cv2.filter2D(img, -1, w, borderType = cv2.BORDER_REFLECT)
         assert result.shape == img.shape
