@@ -49,7 +49,8 @@ class DatasetInterface():
         totalFrames = round(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
         return totalFrames
-    
+    def getVideoCount(self):
+        return len(self.videoJson)
     def getFrame(self, videoIdx: int, frameIdx: int):
         # # Cache frames
         # if self.cached == False or self.cachedVideoId != videoIdx:

@@ -48,7 +48,8 @@ def main(configPath):
     dataset = Utils.Common.loadDataset(config)
     dataLoader = DataLoader(dataset, batch_size = 1, shuffle = False)
     model = Utils.Common.loadModel(config)
-    lossFn = torch.nn.MSELoss(reduction = config['loss_fn'])
+    model.load_state_dict(torch.load(os.path.join(config['base_path_model'], str(config['run_id']), 'epochs', str(config['epoch']), 'model_state.pt')))
+    lossFn = torch.nn.MSELoss()
     boundaries = [0, config['length'] - 1]
 
     evalPath, picklesPath, pngsPath = Utils.Eval.createEvalDirs(config['base_path_model'], str(config['run_id']))

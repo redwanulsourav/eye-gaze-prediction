@@ -11,6 +11,7 @@ import math
 import json
 from sklearn.metrics import roc_auc_score
 import argparse
+import argparse
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
@@ -123,7 +124,7 @@ def getVideoLoss(
         errorSum += loss
 
     result['avg'] = errorSum / len(frames)
-    return errorSum / len(frames)
+    return result
 
 def evalVideo(videoId: int, personId: int, datasetInterface: DatasetInterface, model: IttiKochModel, normalized: bool, logger):
     videoFrames = datasetInterface.getAllFrames(videoIdx = videoId)
@@ -152,8 +153,7 @@ if __name__ == '__main__':
     ap = ap.parse_args()
 
     model = IttiKochModel()
-    datasetInterface = DatasetInterface(ap.dataset_root)
-    prepareOutputDirs(ap.output_path)
+    datasetInterface = DatasetInterface('/data/rsourave/datasets/Coutrot/')
     logger = logging.getLogger(__name__)
     videoCount = datasetInterface.getVideoCount()
 
@@ -164,6 +164,7 @@ if __name__ == '__main__':
         viewerCount = datasetInterface.getViewerCount(videoIdx = i)
         for j in range(viewerCount):
             print(f'Processing video = {i}, viewer = {j}')
-            result = evalVideo(i, j, datasetInterface, model, True, logger)
-            with open(f'{i}-{j}.json')  as f:   # videoId-personId
-                f.write(json.dumps(result))
+            itti_koch_json[i][j] = evalVideo(i, j, datasetInterface, model, True, logger)
+    
+    with open('itti_koch_result.json', 'w') as f:
+        f.write(json.dumps(itti_koch_json))

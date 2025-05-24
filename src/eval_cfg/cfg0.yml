@@ -1,7 +1,8 @@
-base_path_model: '/data/rsourave/saved_models/Coutrot'
-base_path_dataset: '/data/rsourave/datasets/Coutrot'
-run_id: 37
+base_path_model: '/data/rsourave/saved_models/EGTEA'
+base_path_dataset: '/data/rsourave/datasets/EGTEA'
+epoch: 1
+run_id: 8
 videos:
-- 1
+- 9
 viewers:
 - 0

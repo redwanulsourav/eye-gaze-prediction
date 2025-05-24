@@ -1,0 +1,29 @@
+base_path: /data/rsourave/datasets/EGTEA
+batch_size: 6
+epochs: 10
+length: 2
+lr: 0.001
+model_type: 0
+shuffle: true
+stride: 32
+videos:
+- 0
+- 1
+- 2
+- 3
+- 7
+- 50
+- 37
+- 45
+- 13
+- 17
+- 29
+- 35
+- 64
+- 18
+- 56
+- 61
+viewers:
+- 0
+output_dir: /data/rsourave/saved_models/EGTEA/
+
