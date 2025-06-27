@@ -35,22 +35,13 @@ class DatasetInterface():
                 so that we don't have load video each time this
                 function is called.
         """
-        # # Cache frames
-        # if self.cached == False or self.cachedVideoId != videoIdx:
-        #     print('cache miss')
-        #     self.getAllFrames(videoIdx)
+        videoName = self.videoJson[str(videoIdx)].split('.')[0]
+        frames = os.path.join(self.datasetPath, 'processed', 'frames', videoName) 
+        return len(os.listdir(frames))
 
-        # if self.cached == True and self.cachedVideoId == videoIdx:
-        #     return len(self.cachedFrames)
-
-        videoPath = self.videoJson[str(videoIdx)]
-        
-        cap = cv2.VideoCapture(f'{self.datasetPath}/processed/videos/{videoPath}')
-        totalFrames = round(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-        return totalFrames
     def getVideoCount(self):
         return len(self.videoJson)
+
     def getFrame(self, videoIdx: int, frameIdx: int):
         # # Cache frames
         # if self.cached == False or self.cachedVideoId != videoIdx:
@@ -60,36 +51,22 @@ class DatasetInterface():
         # if self.cached == True and self.cachedVideoId == videoIdx:
         #     return self.cachedFrames[frameIdx]
 
-        videoPath = self.videoJson[str(videoIdx)]
-
-        cap = cv2.VideoCapture(f'{self.datasetPath}/processed/videos/{videoPath}')
-        totalFrames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        videoname = self.videojson[str(videoidx)].split('.')[0]
+        framespath = os.path.join(self.datasetpath, 'processed', 'frames', videoname)
         
         assert (frameIdx < totalFrames), f'0 <= frameIdx < {totalFrames} is not satisfied.'
 
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frameIdx)
-        read, frame = cap.read()
-
-        assert (read == True), f'Unknown error, frame read failed'
-
+        frame = cv2.imread(os.path.join(framespath, f'{frameIdx}.png'))
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame = Image.fromarray(frame)
         return frame
     
     def getRangeFrames(self, videoIdx: int, start: int, end: int):
-        videoPath = self.videoJson[str(videoIdx)]
-
-        cap = cv2.VideoCapture(f'{self.datasetPath}/processed/videos/{videoPath}')
-        totalFrames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-        
-        assert (start < totalFrames) and (end <= totalFrames), f'0 <= frameIdx < {totalFrames} is not satisfied.'
-
-        cap.set(cv2.CAP_PROP_POS_FRAMES, start)
-        i = start
-        result = []
+        videoname = self.videojson[str(videoidx)].split('.')[0]
+        framespath = os.path.join(self.datasetpath, 'processed', 'frames', videoname)
 
         for i in range(start, end):
-            read, frame = cap.read()
+            frame = cv2.imread(os.path.join(self.datasetPath, 'processed', 'frames', videoname, f'{i}.png')) 
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frame = Image.fromarray(frame)
             result.append(frame)
