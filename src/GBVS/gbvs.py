@@ -2,13 +2,11 @@ import numpy as np
 import cv2
 from scipy.signal import convolve2d
 import argparse
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+
 class GBVS():
     def __init__(self, dim = (64, 64)):
         self.dim = dim
-        self.dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     def forward(self, x):
         """
             Input: 
@@ -16,26 +14,24 @@ class GBVS():
             Output:
                 Saliency map
         """
-        x = torch.from_numpy(x).to(self.dev) # (H, W, 3)
-        x = x.permute(2, 1, 0) # (3, H, W)
-        x = x.unsqueeze(0) # (1, 3, H, W)
-        # xOrig = x.copy()
-        print(x.shape)
-        print(self.dim)
-        x = torch.nn.functional.interpolate(x, self.dim)
+        
+        xOrig = x.copy()
+        x = cv2.resize(x, self.dim)
         x = x / 255.0
-        x = x.float()
+        x = x.astype(np.float32)
         
         # Extract visual and orientation features.
         visualFeatures = self.extractVisualFeatures(x)
         orientation = self.extractOrientationFeatures(x, 4)
-        resultMap = torch.zeros(self.dim).to(self.dev)
+        resultMap = np.zeros(self.dim, np.float32)
         
-        for featureName, feature in visualFeatures.items():
-            tempMap = self.normalize(self.calcActivation(feature))
+        for featureName, scaleFeatures in visualFeatures.items():
+            tempMap = self.normalize(self.calcActivation(scaleFeatures[0]))
             resultMap += tempMap
 
-        for angleIdx, feature in orientation.items():
+        # for scale, angleMap in orientation.items():
+        for angleIdx, feature in orientation[0].items():
+            # feature = cv2.resize(feature, self.dim)
             tempMap = self.normalize(self.calcActivation(feature))
             resultMap += tempMap
 
@@ -48,25 +44,9 @@ class GBVS():
     
     def calcActivation(self, x):
         x[x == 0] = 1e-5
-        nNodes = self.dim[0] * self.dim[1]
-        xx = torch.arange(nNodes).float().to(self.dev)
-        yy = torch.arange(nNodes).float().to(self.dev)
-        X, Y = torch.meshgrid(xx, yy)
-
-        rowX = X // self.dim[1]
-        rowY = Y // self.dim[1]
-
-        colX = X % self.dim[1]
-        colY = Y % self.dim[1]
-
-        
-
-        xxRow = xx // self.dim[1]
-        xxCol = xx % self.dim[1]
-
-
-        adjMatrix = torch.zeros((nNodes, nNodes), dtype = np.float32)
-        for index, value in torch.ndenumerate(adjMatrix):
+        nNodes = x.shape[0] * x.shape[1]
+        adjMatrix = np.zeros((nNodes, nNodes), dtype = np.float32)
+        for index, value in np.ndenumerate(adjMatrix):
             i, j = index
             rowI = i // self.dim[1] # Y
             colI = i % self.dim[1] # X
@@ -74,7 +54,7 @@ class GBVS():
             rowJ = j // self.dim[1] # Y
             colJ = j % self.dim[1] # X
             # print(i, j, rowI, colI, rowJ, colJ)
-            adjMatrix[i, j] = adjMatrix[j, i] = torch.abs(torch.log(x[rowI, colI] / x[rowJ, colJ])) * \
+            adjMatrix[i, j] = adjMatrix[j, i] = np.abs(np.log(x[rowI, colI] / x[rowJ, colJ])) * \
                                 np.exp(-(np.square(rowI - rowJ) + np.square(colI - colJ))/(2 * 6.4))        
 
         rowSums = adjMatrix.sum(axis = 1, keepdims = True)
@@ -86,15 +66,13 @@ class GBVS():
 
         for i in range(maxiter):
             nextPi = pi @ transitionMatrix
-            print(torch.abs(nextPi - pi).max())
-            if torch.allclose(nextPi, pi, atol = tolerance):
+            print(np.abs(nextPi - pi).max())
+            if np.allclose(nextPi, pi, atol = tolerance):
                 break
             pi = nextPi
         print('activation done')
         return pi.reshape(self.dim[0], self.dim[1])
-
     def normalize(self, x):
-        print(f'normalize {x.shape}')
         x[x == 0] = 1e-5
         nNodes = x.shape[0] * x.shape[1]
         adjMatrix = np.zeros((nNodes, nNodes), dtype = np.float32)
@@ -126,83 +104,68 @@ class GBVS():
         print('normalization done')
         return pi.reshape(self.dim[0], self.dim[1])
     
-    def fsdLaplacian(self, img, n: int):
-        lpf = torch.zeros(5).float().to(self.dev)
-        lpf[2] = 3.0/8.0      # Middle
-        lpf[1] = 0.25
-        lpf[3] = 0.25
-        lpf[0] = 1.0/16
-        lpf[4] = 1.0/16
-        
-        lpf = lpf[:, None] * lpf[None, :]
-        lpf = lpf.unsqueeze(0).unsqueeze(0)
-        # print(lpf)
-        # lpf = np.matmul(lpf, lpf.transpose())
+    def fsdLaplacian(self, img: np.ndarray, n: int):
+        lpf = np.zeros((5,1), dtype=np.float64)
+        lpf[2, 0] = 3.0/8.0      # Middle
+        lpf[1, 0] = 0.25
+        lpf[3, 0] = 0.25
+        lpf[0, 0] = 1.0/16
+        lpf[4, 0] = 1.0/16
+        lpf = np.matmul(lpf, lpf.transpose())
 
         fsdLowPassedPyr = {}
         fsdLaplacianPyr = {}
         fsdLowPassedPyr[0] = img   # At scale 0, we have the original image.
 
         for i in range(1, n+1):
-            # padding = kernelSize // 2
-            # paddedImg = 
-            g0 = F.conv2d(F.pad(fsdLowPassedPyr[i-1], (2, 2, 2, 2), mode = 'reflect'), lpf)
+            g0 = cv2.filter2D(fsdLowPassedPyr[i-1], -1, lpf, borderType = cv2.BORDER_REFLECT)
             fsdLaplacianPyr[i-1] = fsdLowPassedPyr[i-1] - g0  # The difference is the laplacian at previous scale.
-            newDim = (fsdLaplacianPyr[i-1].shape[3] // 2, fsdLaplacianPyr[i-1].shape[2] // 2) # The gaussian at current scale will be downsampled to this dim.
-            fsdLowPassedPyr[i] = F.interpolate(g0, newDim)   # Downsample and store.
-            # print(g0.shape)
-            # print(fsdLowPassedPyr[i].shape)
+            newDim = (fsdLaplacianPyr[i-1].shape[1] // 2, fsdLaplacianPyr[i-1].shape[0] // 2) # The gaussian at current scale will be downsampled to this dim.
+            fsdLowPassedPyr[i] = cv2.resize(g0, newDim)   # Downsample and store.
         
         return (fsdLowPassedPyr, fsdLaplacianPyr)
 
-    def extractOrientationFeatures(self, img, anglesN): 
-        lpf = torch.zeros(5).float().to(self.dev)
-        lpf[2] = 3.0/8.0      
-        lpf[1] = 0.25
-        lpf[3] = 0.25
-        lpf[0] = 1.0/16.0
-        lpf[4] = 1.0/16.0
-        lpf = lpf[:, None] * lpf[None, :]
-        lpf = lpf.unsqueeze(0).unsqueeze(0)
+    def extractOrientationFeatures(self, img: np.ndarray, anglesN): 
+        lpf = np.zeros((5,1), dtype=np.float64)
+        lpf[2, 0] = 3.0/8.0      # Middle
+        lpf[1, 0] = 0.25
+        lpf[3, 0] = 0.25
+        lpf[0, 0] = 1.0/16.0
+        lpf[4, 0] = 1.0/16.0
+        lpf = np.matmul(lpf, lpf.transpose())
         
-        r = img[0, 2, :, :].unsqueeze(0).unsqueeze(0)
-        g = img[0, 1, :, :].unsqueeze(0).unsqueeze(0)
-        b = img[0, 0, :, :].unsqueeze(0).unsqueeze(0)
-
+        r = img[:, :, 2].astype(np.float64)
+        g = img[:, :, 1].astype(np.float64)
+        b = img[:, :, 0].astype(np.float64)
         intensity = (r + g + b) / 3
 
         orientedFeatures = {}
 
-        fsdLowPassed, laplacian = self.fsdLaplacian(intensity, 5)
+        fsdLowPassed, laplacian = self.fsdLaplacian(intensity, 4)
         
         for p, img in laplacian.items():
             orientedFeatures[p] = {}
             for alpha in range(1, anglesN + 1):
-                H, W = img.shape[2], img.shape[3]
-                xx = torch.arange(W) - W // 2
-                yy = torch.arange(H) - H // 2
-                X, Y = torch.meshgrid(xx, yy)
+                imgI = img.astype(np.complex128)
+                H, W = img.shape[0], img.shape[1]
+                xx = np.arange(W) - W // 2
+                yy = np.arange(H) - H // 2
+                X, Y = np.meshgrid(xx, yy)
 
-                theta = torch.pi / 4 * (alpha - 1)
-                k = (torch.pi / 2) * torch.tensor([torch.cos(torch.tensor(theta)), torch.sin(torch.tensor(theta))])
-                multiplier = torch.complex(torch.zeros(img.shape[2], img.shape[3]), k[0] * X + k[1] * Y)
-                multiplier = torch.exp(multiplier).to(self.dev).unsqueeze(0).unsqueeze(0)
-        
-                imgI = img * multiplier
-        
-                imgI = F.pad(imgI, (2, 2, 2, 2), mode = 'reflect')
-                real = imgI.real
-                imag = imgI.imag
-                convolved = torch.complex(F.conv2d(real, lpf), F.conv2d(imag, lpf))
-                imgM = torch.abs(convolved)
+                theta = np.pi / 4 * (alpha - 1)
+                k = (np.pi / 2) * np.array([np.cos(theta), np.sin(theta)])
+                multiplier = k[0] * X + k[1] * Y
+                imgI = img * np.exp(1j * multiplier)
+                convolved = convolve2d(imgI, lpf, mode='same', boundary= 'symm')
+                imgM = np.abs(convolved)
                 orientedFeatures[p][alpha] = imgM
-        return orientedFeatures[0]
 
-    def extractVisualFeatures(self, img):
-        r = img[0, 2, :, :].unsqueeze(0).unsqueeze(0)
-        g = img[0, 1, :, :].unsqueeze(0).unsqueeze(0)
-        b = img[0, 0, :, :].unsqueeze(0).unsqueeze(0)
-        # print(r.shape)
+        return orientedFeatures
+
+    def extractVisualFeatures(self, img: np.ndarray):
+        r = img[:, :, 2].astype(np.float64)
+        g = img[:, :, 1].astype(np.float64)
+        b = img[:, :, 0].astype(np.float64)
         intensity = (r + g + b) / 3
         
         maxI = intensity.max()
@@ -216,26 +179,31 @@ class GBVS():
         red = (r - (g + b) / 2)
         green = (g - (r + b) / 2)
         blue = (b - (r + g) / 2)
-        yellow = (r + g) / 2 - torch.abs(r - g) / 2 - b
+        yellow = (r + g) / 2 - np.abs(r - g) / 2 - b
         
         intensity[intensity < 0] = 0
         red[red < 0] = 0
         green[green < 0] = 0
         blue[blue < 0] = 0
         yellow[yellow < 0] = 0
-        
-        # iSigma = self.gaussianPyramid(intensity)
-        # rSigma = self.gaussianPyramid(red)
-        # gSigma = self.gaussianPyramid(green)
-        # bSigma = self.gaussianPyramid(blue)
-        # ySigma = self.gaussianPyramid(yellow)
 
         features = {}
-        features['intensity'] = intensity
-        features['red'] = red
-        features['green'] = green
-        features['blue'] = blue
-        features['yellow'] = yellow
+        features['intensity'] = {}
+        features['red'] = {}
+        features['green'] = {}
+        features['blue'] = {}
+        features['yellow'] = {}
+
+        features['intensity'][0] = intensity
+        features['red'][0] = red
+        features['green'][0] = green
+        features['blue'][0] = blue
+        features['yellow'][0] = yellow
+
+        for featureName in ['intensity', 'red', 'green', 'blue', 'yellow']:
+            for i in range(1, 4):
+                features[featureName][i] = None
+                features[featureName][i] = cv2.pyrDown(features[featureName][i - 1])
 
         return features
 
