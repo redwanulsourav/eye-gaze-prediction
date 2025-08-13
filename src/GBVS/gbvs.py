@@ -93,6 +93,7 @@ class GBVS():
         return pi.reshape(self.dim[0], self.dim[1])
 
     def normalize(self, x):
+        print(f'normalize {x.shape}')
         x[x == 0] = 1e-5
         nNodes = x.shape[0] * x.shape[1]
         adjMatrix = np.zeros((nNodes, nNodes), dtype = np.float32)
@@ -153,7 +154,7 @@ class GBVS():
         
         return (fsdLowPassedPyr, fsdLaplacianPyr)
 
-     def getOrientedFeatures(self, img, anglesN, pyramidDepth): 
+    def getOrientedFeatures(self, img, anglesN, pyramidDepth): 
         lpf = torch.zeros(5).float().to(self.dev)
         lpf[2] = 3.0/8.0      
         lpf[1] = 0.25
