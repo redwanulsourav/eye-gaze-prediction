@@ -4,11 +4,11 @@ from scipy.signal import convolve2d
 import argparse
 import torch
 import torch.nn as nn
-
+import torch.nn.functional as F
 class GBVS():
-    def __init__(self, dim = (32, 32)):
+    def __init__(self, dim = (64, 64)):
         self.dim = dim
-        self.dev = torch.device('gpu' if torch.cuda.is_avialable() else 'cpu')
+        self.dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     def forward(self, x):
         """
             Input: 
@@ -20,8 +20,9 @@ class GBVS():
         x = x.permute(2, 1, 0) # (3, H, W)
         x = x.unsqueeze(0) # (1, 3, H, W)
         # xOrig = x.copy()
-        
-        x = torch.interpolate(x, self.dim)
+        print(x.shape)
+        print(self.dim)
+        x = torch.nn.functional.interpolate(x, self.dim)
         x = x / 255.0
         x = x.float()
         
@@ -47,16 +48,16 @@ class GBVS():
     
     def calcActivation(self, x):
         x[x == 0] = 1e-5
-        nNodes = x.shape[0] * x.shape[1]
+        nNodes = self.dim[0] * self.dim[1]
         xx = torch.arange(nNodes).float().to(self.dev)
         yy = torch.arange(nNodes).float().to(self.dev)
         X, Y = torch.meshgrid(xx, yy)
 
-        rowX = X // dim[1]
-        rowY = Y // dim[1]
+        rowX = X // self.dim[1]
+        rowY = Y // self.dim[1]
 
-        colX = X % dim[1]
-        colY = Y % dim[1]
+        colX = X % self.dim[1]
+        colY = Y % self.dim[1]
 
         
 
@@ -65,7 +66,7 @@ class GBVS():
 
 
         adjMatrix = torch.zeros((nNodes, nNodes), dtype = np.float32)
-        for index, value in np.ndenumerate(adjMatrix):
+        for index, value in torch.ndenumerate(adjMatrix):
             i, j = index
             rowI = i // self.dim[1] # Y
             colI = i % self.dim[1] # X
@@ -85,8 +86,8 @@ class GBVS():
 
         for i in range(maxiter):
             nextPi = pi @ transitionMatrix
-            print(np.abs(nextPi - pi).max())
-            if np.allclose(nextPi, pi, atol = tolerance):
+            print(torch.abs(nextPi - pi).max())
+            if torch.allclose(nextPi, pi, atol = tolerance):
                 break
             pi = nextPi
         print('activation done')
@@ -154,7 +155,7 @@ class GBVS():
         
         return (fsdLowPassedPyr, fsdLaplacianPyr)
 
-    def getOrientedFeatures(self, img, anglesN, pyramidDepth): 
+    def extractOrientationFeatures(self, img, anglesN): 
         lpf = torch.zeros(5).float().to(self.dev)
         lpf[2] = 3.0/8.0      
         lpf[1] = 0.25
@@ -172,7 +173,7 @@ class GBVS():
 
         orientedFeatures = {}
 
-        fsdLowPassed, laplacian = self.fsdLaplacian(intensity, pyramidDepth)
+        fsdLowPassed, laplacian = self.fsdLaplacian(intensity, 5)
         
         for p, img in laplacian.items():
             orientedFeatures[p] = {}
