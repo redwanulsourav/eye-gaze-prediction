@@ -20,9 +20,10 @@ from models import FrameGenerator, TemporalSaliencyPredictor, Discriminator
 
 def trainDiscriminator(discriminator, generator, video, dev):
     discriminator['optim'].zero_grad()
+    # generator['optim'].zero_grad()
 
-    gOut = generator['model'](video)   # (batch_size, 3, 32, 64, 64)
-    dOut0 = discriminator['model'](video) # (batch_size, 2)
+    gOut = generator['model'](video[:, 0, :, :, :])   # (batch_size, 3, 32, 64, 64)
+    dOut0 = discriminator['model'](video.permute(0, 2, 1, 3, 4)) # (batch_size, 2)
     dOut1 = discriminator['model'](gOut)
 
     realLabel = torch.Tensor([1, 0]).expand(dOut0.shape[0], -1).to(dev)
@@ -37,7 +38,9 @@ def trainDiscriminator(discriminator, generator, video, dev):
     return loss.item()
 
 def trainGenerator(discriminator, generator, video, dev):
+    # discriminator['optim'].zero_grad()
     generator['optim'].zero_grad()
+    # video: (batch, t, 3, 64, 64)
 
     gOut = generator['model'](video) # (batch_size, 3, 32, 64, 64)
     dOut = discriminator['model'](gOut)
@@ -47,14 +50,27 @@ def trainGenerator(discriminator, generator, video, dev):
     criterionBCE = torch.nn.BCELoss()
     criterionAbs = torch.nn.L1Loss()
 
-    loss = criterionBCE(dOut, realLabel) + 0.1 * criterionAbs(video, gOut[:, :, 0, :, :])
+    loss = criterionBCE(dOut, realLabel) + 0.1 * criterionAbs(video[:, :, :, :], gOut[:, :, 0, :, :])
     loss.backward()
 
     generator['optim'].step()
 
     return loss.item()
 
-def train_one_epoch(epoch, trainLoader, generator, discriminator, dev, output_path, run_id, logger = None):
+def trainGazePredictor(generator, gazePredictor, fixationMap, video):
+    gOut = generator['model'](video) # (batch_size, 3, 32, 64, 64)
+    sMap = gazePredictor['model'](gOut)
+
+    criterionKLDiv = torch.nn.KLDivLoss(reduction = 'batchmean', log_target = True)
+
+    loss = criterionKLDiv(sMap.log(), F.log_softmax(fixationMap))
+    loss.backward()
+
+    gazePredictor['optim'].step()
+
+
+def train_one_epoch(epoch, trainLoader, generator, discriminator, dev, output_path, logger = None):
+    
     data_len = len(trainLoader)
 
     H = {
@@ -63,14 +79,10 @@ def train_one_epoch(epoch, trainLoader, generator, discriminator, dev, output_pa
         'avg_loss_discriminator': 0,
         'avg_loss_generator': 0
     }
-    try:
-        os.mkdir(os.path.join(output_path, 'tmp'))
-    except:
-        pass
 
     for i, data in enumerate(trainLoader):
-        video = data['frames'].to(dev)
-        fixationMap = data['temporal_fixation_map'].to(dev)
+        video = data['input_frames'].to(dev)
+        fixation_map = data['input_gaze'].to(dev)
         
         lD = trainDiscriminator(discriminator, generator, video, dev)
         lG = trainGenerator(discriminator, generator, video, dev)
@@ -85,16 +97,17 @@ def train_one_epoch(epoch, trainLoader, generator, discriminator, dev, output_pa
         
         if logger is not None:
             logger.info(f'Epoch {epoch}: {i} / {data_len} losses: discriminator: {lD}, generator: {lG}')
-
+        
         if i % 50 == 0:
+            """ Save discriminator state """
             torch.save(discriminator['model'].state_dict(), f'{output_path}/{run_id}/tmp/discriminator_model_state_{epoch}_{i}.pt')
             torch.save(discriminator['optim'].state_dict(), f'{output_path}/{run_id}/tmp/discriminator_optim_state_{epoch}_{i}.pt')
             
             """ Save Generator state """
             torch.save(generator['model'].state_dict(), f'{output_path}/{run_id}/tmp/generator_model_state_{epoch}_{i}.pt')
             torch.save(generator['optim'].state_dict(), f'{output_path}/{run_id}/tmp/generator_optim_state_{epoch}_{i}.pt')
-            
-
+        
+       
     H['avg_loss_discriminator'] /= data_len
     H['avg_loss_generator'] /= data_len
         
@@ -123,6 +136,7 @@ def prepare_dirs(output_path: str, cfg_path):
     os.makedirs(f'{output_path}/{run_id}/epochs')
     os.makedirs(f'{output_path}/{run_id}/src')
     os.makedirs(f'{output_path}/{run_id}/tmp')
+
     os.system(f'cp models.py {output_path}/{run_id}/src/models.py')
     os.system(f'cp train.py {output_path}/{run_id}/src/train.py')   # TODO: Make this dynamic
     os.system(f'cp {cfg_path} {output_path}/{run_id}/config.yaml')
@@ -145,11 +159,12 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     
     
-    trainData = DFG_GTEA_Dataset(
-                               videos =          config['videos'] if 'videos' in config else [0],
-                               data_root =       config['base_path'])
+    train_data = DFG_GTEA_Dataset(
+                               length =         config['length'],
+                               videos=          config['videos'] if 'videos' in config else [0],
+                               root =       config['base_path'])
     
-    trainLoader = DataLoader(trainData, batch_size = config['batch_size'], shuffle = config['shuffle'] if 'shuffle' in config else True)
+    train_loader = DataLoader(train_data, batch_size = config['batch_size'], shuffle = config['shuffle'] if 'shuffle' in config else True)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -165,7 +180,7 @@ if __name__ == '__main__':
         
     for i in range(0, epochs):
         avg_loss_discriminator, avg_loss_generator = \
-                    train_one_epoch(i, trainLoader, generator, discriminator, device, config['output_dir'], run_id, logger)
+                    train_one_epoch(i, train_loader, generator, discriminator, device, config['output_dir'], logger)
 
         print(f'[{i}/{epochs}] Average Loss: Discriminator: {avg_loss_discriminator}, Generator: {avg_loss_generator}')
         logger.info(f'[{i}/{epochs}] Average Loss: Discriminator: {avg_loss_discriminator}, Generator: {avg_loss_generator}')
