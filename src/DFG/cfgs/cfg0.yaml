@@ -1,5 +1,5 @@
 # Default configuration of the paper.
-base_path: /data/rsourave/datasets/GTEA
+base_path: /data/rsourave/datasets/EGTEA
 batch_size: 32
 epochs: 100
 length: 32
