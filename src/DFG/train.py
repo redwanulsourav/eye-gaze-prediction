@@ -68,7 +68,7 @@ def trainGazePredictor(generator, gazePredictor, fixationMap, video):
     gazePredictor['optim'].step()
 
 
-def train_one_epoch(epoch, trainLoader, generator, discriminator, dev, output_path, logger = None):
+def train_one_epoch(epoch, trainLoader, generator, discriminator, dev, output_path, run_id, logger = None):
     
     data_len = len(trainLoader)
 
@@ -97,6 +97,15 @@ def train_one_epoch(epoch, trainLoader, generator, discriminator, dev, output_pa
         if logger is not None:
             logger.info(f'Epoch {epoch}: {i} / {data_len} losses: discriminator: {lD}, generator: {lG}')
 
+        if i % 50 == 0:
+            torch.save(discriminator['model'].state_dict(), f'{output_path}/{run_id}/tmp/discriminator_model_state_{epoch}_{i}.pt')
+            torch.save(discriminator['optim'].state_dict(), f'{output_path}/{run_id}/tmp/discriminator_optim_state_{epoch}_{i}.pt')
+            
+            """ Save Generator state """
+            torch.save(generator['model'].state_dict(), f'{output_path}/{run_id}/tmp/generator_model_state_{epoch}_{i}.pt')
+            torch.save(generator['optim'].state_dict(), f'{output_path}/{run_id}/tmp/generator_optim_state_{epoch}_{i}.pt')
+            
+
     H['avg_loss_discriminator'] /= data_len
     H['avg_loss_generator'] /= data_len
         
@@ -124,6 +133,7 @@ def prepare_dirs(output_path: str, cfg_path):
     os.makedirs(f'{output_path}/{run_id}/weights')
     os.makedirs(f'{output_path}/{run_id}/epochs')
     os.makedirs(f'{output_path}/{run_id}/src')
+    os.makedirs(f'{output_path}/{run_id}/tmp')
     os.system(f'cp models.py {output_path}/{run_id}/src/models.py')
     os.system(f'cp train.py {output_path}/{run_id}/src/train.py')   # TODO: Make this dynamic
     os.system(f'cp {cfg_path} {output_path}/{run_id}/config.yaml')
@@ -167,7 +177,7 @@ if __name__ == '__main__':
         
     for i in range(0, epochs):
         avg_loss_discriminator, avg_loss_generator = \
-                    train_one_epoch(i, trainLoader, generator, discriminator, device, config['output_dir'], logger)
+                    train_one_epoch(i, trainLoader, generator, discriminator, device, config['output_dir'], run_id, logger)
 
         print(f'[{i}/{epochs}] Average Loss: Discriminator: {avg_loss_discriminator}, Generator: {avg_loss_generator}')
         logger.info(f'[{i}/{epochs}] Average Loss: Discriminator: {avg_loss_discriminator}, Generator: {avg_loss_generator}')
