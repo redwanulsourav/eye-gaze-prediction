@@ -6,7 +6,7 @@ class FrameGenerator(nn.Module):
         super(FrameGenerator, self).__init__()
 
         self.latent_representation_generator = nn.Sequential(
-            # (batcn, 3, 64, 64)
+            # (batch, 3, 64, 64)
             nn.Conv2d(3, 128, kernel_size = 4, stride = 2, padding = 1),    
             # (batch, 128, 32, 32)
             nn.ReLU(inplace = True),
@@ -198,7 +198,7 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
 
         self.layers = nn.Sequential(
-            # (batch, 1, 32, 64, 64)
+            # (batch, 3, 32, 64, 64)
             nn.Conv3d(3, 128, kernel_size = 4, stride = 2, padding = 1),
             # (batch, 128, 16, 32, 32)
             nn.LeakyReLU(0.2, inplace = True),

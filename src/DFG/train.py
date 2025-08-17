@@ -20,9 +20,8 @@ from models import FrameGenerator, TemporalSaliencyPredictor, Discriminator
 
 def trainDiscriminator(discriminator, generator, video, dev):
     discriminator['optim'].zero_grad()
-    # generator['optim'].zero_grad()
 
-    gOut = generator['model'](video[:, :, 0, :, :])   # (batch_size, 3, 32, 64, 64)
+    gOut = generator['model'](video)   # (batch_size, 3, 32, 64, 64)
     dOut0 = discriminator['model'](video) # (batch_size, 2)
     dOut1 = discriminator['model'](gOut)
 
@@ -38,10 +37,9 @@ def trainDiscriminator(discriminator, generator, video, dev):
     return loss.item()
 
 def trainGenerator(discriminator, generator, video, dev):
-    # discriminator['optim'].zero_grad()
     generator['optim'].zero_grad()
 
-    gOut = generator['model'](video[:, :, 0, :, :]) # (batch_size, 3, 32, 64, 64)
+    gOut = generator['model'](video) # (batch_size, 3, 32, 64, 64)
     dOut = discriminator['model'](gOut)
 
     realLabel = torch.Tensor([1, 0]).expand(dOut.shape[0], -1).to(dev)
@@ -49,27 +47,14 @@ def trainGenerator(discriminator, generator, video, dev):
     criterionBCE = torch.nn.BCELoss()
     criterionAbs = torch.nn.L1Loss()
 
-    loss = criterionBCE(dOut, realLabel) + 0.1 * criterionAbs(video[:, :, 0, :, :], gOut[:, :, 0, :, :])
+    loss = criterionBCE(dOut, realLabel) + 0.1 * criterionAbs(video, gOut[:, :, 0, :, :])
     loss.backward()
 
     generator['optim'].step()
 
     return loss.item()
 
-def trainGazePredictor(generator, gazePredictor, fixationMap, video):
-    gOut = generator['model'](video[:, :, 0, :, :]) # (batch_size, 3, 32, 64, 64)
-    sMap = gazePredictor['model'](gOut)
-
-    criterionKLDiv = torch.nn.KLDivLoss(reduction = 'batchmean', log_target = True)
-
-    loss = criterionKLDiv(sMap.log(), F.log_softmax(fixationMap))
-    loss.backward()
-
-    gazePredictor['optim'].step()
-
-
 def train_one_epoch(epoch, trainLoader, generator, discriminator, dev, output_path, logger = None):
-    
     data_len = len(trainLoader)
 
     H = {
@@ -78,6 +63,10 @@ def train_one_epoch(epoch, trainLoader, generator, discriminator, dev, output_pa
         'avg_loss_discriminator': 0,
         'avg_loss_generator': 0
     }
+    try:
+        os.mkdir(os.path.join(output_path, 'tmp'))
+    except:
+        pass
 
     for i, data in enumerate(trainLoader):
         video = data['frames'].to(dev)
@@ -147,9 +136,8 @@ if __name__ == '__main__':
     
     
     trainData = DFG_GTEA_Dataset(
-                               length =         config['length'],
-                               videos=          config['videos'] if 'videos' in config else [0],
-                               rootPath =       config['base_path'])
+                               videos =          config['videos'] if 'videos' in config else [0],
+                               data_root =       config['base_path'])
     
     trainLoader = DataLoader(trainData, batch_size = config['batch_size'], shuffle = config['shuffle'] if 'shuffle' in config else True)
     
