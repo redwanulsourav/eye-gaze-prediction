@@ -18,16 +18,33 @@ from torch.utils.data import DataLoader
 from dfg_dataset import DFG_GTEA_Dataset
 from models import FrameGenerator, TemporalSaliencyPredictor, Discriminator
 
-def trainGazePredictor(generator, gazePredictor, fixationMap, video):
-    gOut = generator['model'](video[:, :, 0, :, :]) # (batch_size, 3, 32, 64, 64)
-    sMap = gazePredictor['model'](gOut)
+def trainGazePredictor(generator, g_predictor, gt_map, x_video):
+    g_predictor['optim'].zero_grad()
 
-    criterionKLDiv = torch.nn.KLDivLoss(reduction = 'batchmean', log_target = True)
+    gen_out = generator['model'](video) # (batch_size, 3, 32, 64, 64)
+    p_map = g_predictor['model'](gen_out) # Predicted map
 
-    loss = criterionKLDiv(sMap.log(), F.log_softmax(fixationMap))
+    loss_KL_div = torch.nn.KLDivLoss(reduction = 'batchmean', log_target = True)
+
+    B, C, T, H, W = sMap.shape
+
+    # Prepare the output and gt for loss calculation.
+    p_map = p_map.squeeze()
+    gt_map = gt_map.squeeze()
+
+    p_map = p_map.view(B, T, -1)
+    gt_map = gt_map.view(B, T, -1)
+
+    mask = (gt_map != 0)
+    gt_map = torch.where(mask, gt_map, torch.tensor(-1e9))
+    
+    gt_map = F.log_softmax(gt_map, dim = -1)
+    p_map = F.log_softmax(p_map, dim = -1)
+
+    loss = criterionKLDiv(p_map, gt_map)
     loss.backward()
 
-    gazePredictor['optim'].step()
+    g_predictor['optim'].step()
 
 
 def train_one_epoch(epoch, trainLoader, generator, gazePredictor, dev, output_path, logger = None):
@@ -76,7 +93,7 @@ def prepare_dirs(output_path: str, cfg_path):
     os.makedirs(f'{output_path}/{run_id}/epochs')
     os.makedirs(f'{output_path}/{run_id}/src')
     os.system(f'cp models.py {output_path}/{run_id}/src/models.py')
-    os.system(f'cp train.py {output_path}/{run_id}/src/train.py')   # TODO: Make this dynamic
+    os.system(f'cp {os.path.abspath(__file__)} {output_path}/{run_id}/src/train.py')   # TODO: Make this dynamic
     os.system(f'cp {cfg_path} {output_path}/{run_id}/config.yaml')
     
     return run_id
@@ -111,7 +128,7 @@ if __name__ == '__main__':
     # generator['optim'] = torch.optim.Adam(generator['model'].parameters(), lr = config['lr'], betas = (config['momentum'], 0.999))
 
     gazePredictor = {}
-    gazePredictor['model'] = TemporalSaliencyPredictor().to(device).eval()
+    gazePredictor['model'] = TemporalSaliencyPredictor().to(device).train()
     gazePredictor['optim'] = torch.optim.Adam(gazePredictor['model'].parameters(), lr = config['lr'], betas = (config['momentum'], 0.999))
 
     epochs = config['epochs'] if 'epochs' in config else 2

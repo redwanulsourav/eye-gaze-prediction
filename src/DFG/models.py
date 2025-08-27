@@ -201,7 +201,6 @@ class TemporalSaliencyPredictor(nn.Module):
         frame_size = x.shape[2]
         img_width = x.shape[4]
         img_height = x.shape[3]
-        
         x = self.layers(x)
         # (batch, 1, 32, 64, 64)
         x = x.squeeze()
@@ -209,13 +208,11 @@ class TemporalSaliencyPredictor(nn.Module):
         
         x = x.view(batch_size, frame_size, -1)
         # (batch, 32, 4096)
-        x = torch.transpose(x, 0, 2)
+        
+        # x = nn.functional.log_softmax(x)
         # (4096, 32, batch)
         
-        x = nn.functional.log_softmax(x)
-        # (4096, 32, batch)
-        
-        x = torch.transpose(x, 0, 2)
+        # x = torch.transpose(x, 0, 2)
         # (batch, 32, 4096)
         
         x = x.view(batch_size, 1, frame_size, img_width, img_height)

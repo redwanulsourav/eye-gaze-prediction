@@ -63,6 +63,17 @@ class DFG_GTEA_Dataset(Dataset):
     def __len__(self):
         return len(self.index)
 
+    def _gaussian_kernel_(self, dim, channels):
+        x = torch.arange(dim) - dim // 2
+        gauss = torch.exp(-(x**2) / (2 * 1.0 ** 2))
+        gauss = gauss / gauss.sum()
+
+        kernel_2d = gauss[:, None] * gauss[None, :]
+        kernel_2d = kernel_2d / kernel_2d.sum()
+
+        kernel_2d = kernel_2d.expand(channels, 1, dim, dim)
+        return kernel_2d
+
     def __getitem__(self, idx):
         """
             Returns a dictionary with training data, and target data
@@ -112,6 +123,8 @@ class DFG_GTEA_Dataset(Dataset):
             tgt_gaze[i, 0, y, x] = 1
 
         # Should really convolve here? Or no.
+        kernel = self._gaussian_kernel_(7, 1)
+        tgt_gaze = F.conv2d(tgt_gaze, kernel, padding = 3, groups = 1)
         # My variable names are shit.
 
         tgt_frames = torch.stack(tgt_frames)  # (32, 3, 64, 64)
