@@ -13,20 +13,25 @@ import pathlib
 import shutil
 import time
 import json
+
+import torch.nn.functional as F
+
 from torch.utils.data import DataLoader
 
 from dfg_dataset import DFG_GTEA_Dataset
 from models import FrameGenerator, TemporalSaliencyPredictor, Discriminator
 
 def trainGazePredictor(generator, g_predictor, gt_map, x_video):
+    dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
+    print(f'gt_map.shape {gt_map.shape}')
     g_predictor['optim'].zero_grad()
 
-    gen_out = generator['model'](video) # (batch_size, 3, 32, 64, 64)
+    gen_out = generator['model'](x_video) # (batch_size, 3, 32, 64, 64)
     p_map = g_predictor['model'](gen_out) # Predicted map
-
+    print(f'p_map.shape {p_map.shape}')
     loss_KL_div = torch.nn.KLDivLoss(reduction = 'batchmean', log_target = True)
 
-    B, C, T, H, W = sMap.shape
+    B, C, T, H, W = p_map.shape
 
     # Prepare the output and gt for loss calculation.
     p_map = p_map.squeeze()
@@ -35,20 +40,21 @@ def trainGazePredictor(generator, g_predictor, gt_map, x_video):
     p_map = p_map.view(B, T, -1)
     gt_map = gt_map.view(B, T, -1)
 
-    mask = (gt_map != 0)
-    gt_map = torch.where(mask, gt_map, torch.tensor(-1e9))
+    mask = (gt_map != 0).to(dev)
+    gt_map = torch.where(mask, gt_map, torch.tensor(-1e9).to(dev))
     
     gt_map = F.log_softmax(gt_map, dim = -1)
     p_map = F.log_softmax(p_map, dim = -1)
 
-    loss = criterionKLDiv(p_map, gt_map)
+    loss = loss_KL_div(p_map, gt_map)
     loss.backward()
 
     g_predictor['optim'].step()
 
+    return loss.item()
+
 
 def train_one_epoch(epoch, trainLoader, generator, gazePredictor, dev, output_path, logger = None):
-    
     data_len = len(trainLoader)
 
     H = {
@@ -57,18 +63,22 @@ def train_one_epoch(epoch, trainLoader, generator, gazePredictor, dev, output_pa
     }
 
     for i, data in enumerate(trainLoader):
-        video = data['frames'].to(dev)
-        fixationMap = data['temporal_fixation_map'].to(dev)
+        input_frame = data['input_frame'].to(dev)
+        tgt_map = data['tgt_gaze'].to(dev)
         
-        loss = trainGazePredictor(generator, gazePredictor, fixationMap, video)
+        loss = trainGazePredictor(generator, gazePredictor, tgt_map, input_frame)
 
         H['avg_loss'] += loss
-        H['losses'].append(lD)
+        H['losses'].append(loss)
         
         print(f'[{i} / {data_len}]: loss: {loss}')
         
         if logger is not None:
             logger.info(f'Epoch {epoch}: {i} / {data_len} loss: {loss}')
+
+        if i % 50 == 0:
+            torch.save(gazePredictor['model'].state_dict(), f'{output_path}/{run_id}/tmp/gazePredictor_model_{epoch}_{i}.pt')
+            torch.save(gazePredictor['optim'].state_dict(), f'{output_path}/{run_id}/tmp/gazePredictor_optim_{epoch}_{i}.pt')
 
     H['avg_loss'] /= data_len
         
@@ -92,6 +102,8 @@ def prepare_dirs(output_path: str, cfg_path):
     os.makedirs(f'{output_path}/{run_id}/weights')
     os.makedirs(f'{output_path}/{run_id}/epochs')
     os.makedirs(f'{output_path}/{run_id}/src')
+    os.makedirs(f'{output_path}/{run_id}/tmp')
+
     os.system(f'cp models.py {output_path}/{run_id}/src/models.py')
     os.system(f'cp {os.path.abspath(__file__)} {output_path}/{run_id}/src/train.py')   # TODO: Make this dynamic
     os.system(f'cp {cfg_path} {output_path}/{run_id}/config.yaml')
@@ -115,16 +127,18 @@ if __name__ == '__main__':
     
     
     trainData = DFG_GTEA_Dataset(
-                               length =         config['length'],
-                               videos=          config['videos'] if 'videos' in config else [0],
-                               rootPath =       config['base_path'])
+                               videos =          config['videos'] if 'videos' in config else [0],
+                               data_root =       config['base_path'],
+                               t_sample = 20)
     
     trainLoader = DataLoader(trainData, batch_size = config['batch_size'], shuffle = config['shuffle'] if 'shuffle' in config else True)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     generator = {}
-    generator['model'] = FrameGenerator().load_state_dict(torch.load(config['generator_saved_model'])).to(device).eval()
+    generator['model'] = FrameGenerator().to(device).eval()
+    generator['model'].load_state_dict(torch.load(config['generator_saved_model']))
+    generator['model'].eval()
     # generator['optim'] = torch.optim.Adam(generator['model'].parameters(), lr = config['lr'], betas = (config['momentum'], 0.999))
 
     gazePredictor = {}

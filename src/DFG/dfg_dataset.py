@@ -8,6 +8,8 @@ import numpy as np
 import cv2
 import json
 
+import torch.nn.functional as F
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
 from dataset_interface.dataset_interface import DatasetInterface

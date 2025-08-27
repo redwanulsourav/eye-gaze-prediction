@@ -1,9 +1,9 @@
 # Default configuration of the paper.
-base_path: /data/rsourave/datasets/GTEA
-batch_size: 32
+base_path: /data/rsourave/datasets/EGTEA
+batch_size: 96
 epochs: 100
 length: 32
-lr: 0.00002
+lr: 0.00001
 momentum: 0.5
 shuffle: true
 videos:
@@ -20,7 +20,8 @@ videos:
 - 15
 viewers:
 - 0
-output_dir: /data/rsourave/DFG_Gaze_Saved/GTEA/
-generator_saved_model: /data/rsourave/DFG_Gaze/GTEA/36/epochs/
+output_dir: /data/rsourave/DFG_Saved/EGTEA/
+generator_saved_model: /data/rsourave/DFG_Saved/EGTEA/102/epochs/44/generator_model_state.pt
+generator_saved_optim: /data/rsourave/DFG_Saved/EGTEA/102/epochs/44/generator_optim_state.pt
 
 
