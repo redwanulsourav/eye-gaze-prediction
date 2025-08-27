@@ -78,7 +78,26 @@ class TransformerEncoder(nn.Module):
         return x
 
 
+class SMapEncoder(nn.Module):
+    def __init__(self, latent_dim = 512, p = 8, h = 64, w = 64):
+        super(SMapEncoder, self).__init__()
+        self.p = p
+        self.latent_dim = latent_dim
+        self.transformer = torch.Sequential([TransformerEncoder(latent_dim) for i in range(6)])
+        self.out_mlp = nn.Linear(latent_dim, latent_dim)
+    
+    def forward(self, x):
+        B, H, W = x.shape
+        x = x.view(B, H // self.p, self.p, W // self.p, self.p) # shape (B, H // self.p, p, W // self.p, p)
+        x = x.permute(0, 1, 3, 2, 4) # shape (B, T, H //self.p, W // self.p, p, p)
+        x = x.view(B, H // self.p * W // self.p, self.p * self.p) # shape (B, T, N, P ^ 2)
+        # TODO: Append label encoding here. 
+        x = self.transformer(x) # shape (B, N + 1, d_v)
+        y = out_mlp(x[:, 0, :])
+        return y
 
+        
+        
 class ViViT(nn.Module):
     def __init__(self, embed_dim, p, c = 3, t = 32, h = 64, w = 64):
         super(ViVit, self).__init__()

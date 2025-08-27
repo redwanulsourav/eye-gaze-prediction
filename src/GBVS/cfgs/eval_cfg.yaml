@@ -1,0 +1,6 @@
+base_path: /data/rsourave/datasets/EGTEA
+output_path: /data/rsourave/saved_models/GBVS
+eval_name: EGTEA_all
+tsampling_rate: 1
+videos:
+- 0

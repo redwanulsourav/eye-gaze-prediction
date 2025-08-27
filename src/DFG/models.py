@@ -106,6 +106,36 @@ class FrameGenerator(nn.Module):
             # (batch, 3, 32, 64, 64)
         )
 
+        for m in self.foreground_mask_generator.modules():
+            if isinstance(m, nn.ConvTranspose3d):
+                torch.nn.init.normal_(m.weight, mean = 0, std = 0.02)
+                if m.bias is not None:
+                    torch.nn.init.zeros_(m.bias)
+
+        for m in self.foreground_frame_generator.modules():
+            if isinstance(m, nn.ConvTranspose3d): 
+                torch.nn.init.normal_(m.weight, mean = 0, std = 0.02)
+                if m.bias is not None:
+                    torch.nn.init.zeros_(m.bias)
+
+        for m in self.foreground_backbone.modules():
+            if isinstance(m, (nn.BatchNorm3d, nn.ConvTranspose3d))  :
+                torch.nn.init.normal_(m.weight, mean = 0, std = 0.02)
+                if m.bias is not None:
+                    torch.nn.init.zeros_(m.bias)
+
+        for m in self.background_generator.modules():
+            if isinstance(m, (nn.BatchNorm3d, nn.ConvTranspose3d)):
+                torch.nn.init.normal_(m.weight, mean = 0, std = 0.02)
+                if m.bias is not None:
+                    torch.nn.init.zeros_(m.bias)
+
+        for m in self.latent_representation_generator.modules():
+            if isinstance(m, (nn.Conv2d, nn.BatchNorm2d)):
+                torch.nn.init.normal_(m.weight, mean = 0, std = 0.02)
+                if m.bias is not None:
+                    torch.nn.init.zeros_(m.bias)
+
 
     def forward(self, x):
         # (batch, 3, 64, 64)
@@ -224,6 +254,14 @@ class Discriminator(nn.Module):
             nn.Conv3d(1024, 2, kernel_size = (2, 4, 4), stride = 1, padding = 0)
             # (batch, 2, 1, 1, 1)
         )
+        
+        for m in self.layers:
+            if isinstance(m, (nn.Conv3d, nn.BatchNorm3d)) : 
+                torch.nn.init.normal_(m.weight, mean = 0, std = 0.02)
+                if m.bias is not None:
+                    torch.nn.init.zeros_(m.bias)
+
+
     
     def forward(self, x):
         # (batch, 3, 32, 64, 64)

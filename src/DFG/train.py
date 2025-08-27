@@ -18,12 +18,12 @@ from torch.utils.data import DataLoader
 from dfg_dataset import DFG_GTEA_Dataset
 from models import FrameGenerator, TemporalSaliencyPredictor, Discriminator
 
-def trainDiscriminator(discriminator, generator, video, dev):
+def trainDiscriminator(discriminator, generator, video, tgt_video, dev):
     discriminator['optim'].zero_grad()
     # generator['optim'].zero_grad()
-
-    gOut = generator['model'](video[:, 0, :, :, :])   # (batch_size, 3, 32, 64, 64)
-    dOut0 = discriminator['model'](video.permute(0, 2, 1, 3, 4)) # (batch_size, 2)
+    gOut = generator['model'](video)   # (batch_size, 3, 32, 64, 64)
+    tgt_video = tgt_video.permute(0, 2, 1, 3, 4)
+    dOut0 = discriminator['model'](tgt_video) # (batch_size, 2)
     dOut1 = discriminator['model'](gOut)
 
     realLabel = torch.Tensor([1, 0]).expand(dOut0.shape[0], -1).to(dev)
@@ -38,9 +38,7 @@ def trainDiscriminator(discriminator, generator, video, dev):
     return loss.item()
 
 def trainGenerator(discriminator, generator, video, dev):
-    # discriminator['optim'].zero_grad()
     generator['optim'].zero_grad()
-    # video: (batch, t, 3, 64, 64)
 
     gOut = generator['model'](video) # (batch_size, 3, 32, 64, 64)
     dOut = discriminator['model'](gOut)
@@ -70,7 +68,6 @@ def trainGazePredictor(generator, gazePredictor, fixationMap, video):
 
 
 def train_one_epoch(epoch, trainLoader, generator, discriminator, dev, output_path, logger = None):
-    
     data_len = len(trainLoader)
 
     H = {
@@ -81,10 +78,10 @@ def train_one_epoch(epoch, trainLoader, generator, discriminator, dev, output_pa
     }
 
     for i, data in enumerate(trainLoader):
-        video = data['input_frames'].to(dev)
-        fixation_map = data['input_gaze'].to(dev)
-        
-        lD = trainDiscriminator(discriminator, generator, video, dev)
+        video = data['input_frame'].to(dev)
+        tgt_video = data['tgt_frames'].to(dev)
+
+        lD = trainDiscriminator(discriminator, generator, video, tgt_video, dev)
         lG = trainGenerator(discriminator, generator, video, dev)
 
         H['avg_loss_discriminator'] += lD
@@ -160,9 +157,9 @@ if __name__ == '__main__':
     
     
     train_data = DFG_GTEA_Dataset(
-                               length =         config['length'],
                                videos=          config['videos'] if 'videos' in config else [0],
-                               root =       config['base_path'])
+                               data_root =       config['base_path'],
+                               t_sample = 20)
     
     train_loader = DataLoader(train_data, batch_size = config['batch_size'], shuffle = config['shuffle'] if 'shuffle' in config else True)
     
@@ -172,13 +169,31 @@ if __name__ == '__main__':
     discriminator['model'] = Discriminator().to(device).train()
     discriminator['optim'] = torch.optim.Adam(discriminator['model'].parameters(), lr = config['lr'], betas = (config['momentum'], 0.999))
     
+    if 'pretrained_discriminator_model' in list(config.keys()):
+        discriminator['model'].load_state_dict(torch.load(config['pretrained_discriminator_model']))
+
+    if 'pretrained_discriminator_optim' in list(config.keys()):
+        discriminator['optim'].load_state_dict(torch.load(config['pretrained_discriminator_optim']))
+
+
     generator = {}
     generator['model'] = FrameGenerator().to(device).train()
     generator['optim'] = torch.optim.Adam(generator['model'].parameters(), lr = config['lr'], betas = (config['momentum'], 0.999))
+    
+    if 'pretrained_generator_model' in list(config.keys()):
+        generator['model'].load_state_dict(torch.load(config['pretrained_generator_model']))
+    
+    if 'pretrained_generator_optim' in list(config.keys()):
+        generator['optim'].load_state_dict(torch.load(config['pretrained_generator_optim']))
 
     epochs = config['epochs'] if 'epochs' in config else 2
-        
-    for i in range(0, epochs):
+       
+    if 'starting_epoch' in list(config.keys()):
+        starting_epoch = config['starting_epoch']
+    else:
+        starting_epoch = 0
+
+    for i in range(starting_epoch, epochs):
         avg_loss_discriminator, avg_loss_generator = \
                     train_one_epoch(i, train_loader, generator, discriminator, device, config['output_dir'], logger)
 

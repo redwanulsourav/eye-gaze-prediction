@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 from dataset_interface.dataset_interface import DatasetInterface
 
 class DFG_GTEA_Dataset(Dataset):
-    def __init__(self, data_root = '',  videos = [0], out_dim = (64, 64)):
+    def __init__(self, data_root = '',  videos = [0], out_dim = (64, 64), t_sample = 15):
         """
             Inputs:
                 rootPath (str) -> Folder containing the `raw` and `processed` folders
@@ -26,6 +26,8 @@ class DFG_GTEA_Dataset(Dataset):
         self.index = []
         self.video_order_dir = os.path.join(self.data_root, 'processed', 'videos', 'video_order.json')
         self.gaze_order_dir = os.path.join(self.data_root, 'processed', 'gaze', 'gaze_order.json')
+        self.t_sample = t_sample
+        self.out_dim = out_dim
 
         self.video_json = None
         self.gaze_json = None
@@ -43,9 +45,12 @@ class DFG_GTEA_Dataset(Dataset):
             frames_dir = os.path.join(self.data_root, 'processed', 'frames', video_name, 'm1')
             n_frames = len(os.listdir(frames_dir))
 
-            for i in range(0, n_frames, t_sample):
+            for i in range(0, n_frames, self.t_sample):
                 if i + 32 >= n_frames:
                     break
+                if not f'{i + 32}' in list(self.gaze_json[str(video)]['0'].keys()):
+                    break
+
                 
                 self.index.append({
                     'frame': i,
@@ -76,8 +81,12 @@ class DFG_GTEA_Dataset(Dataset):
         video_name = self.video_json[str(video)].split('.')[0]
         frame_dir = os.path.join(self.data_root, 'processed', 'frames', video_name, 'm1')
         input_frame = cv2.imread(os.path.join(frame_dir, f'{frame}.png')) 
-
-        
+        input_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
+        input_frame = cv2.resize(input_frame, self.out_dim) 
+        input_frame = torch.from_numpy(input_frame)
+        input_frame = input_frame.permute(2, 0, 1)
+        input_frame = input_frame.float()
+        input_frame /= 255
         """ Load target video """
         """ Video output shape should be (3, 32, 64, 64) """
         
@@ -87,11 +96,13 @@ class DFG_GTEA_Dataset(Dataset):
 
         for i in range(32):
             tgt_frames[i] = cv2.imread(os.path.join(frame_dir, f'{frame + i}.png'))
-            tgt_frames[i] = cv2.cvtColor(tgt_frames[i], cv2.BGR2RGB)
-            w, h = frame.shape[1], frame.shape[0]
+            tgt_frames[i] = cv2.cvtColor(tgt_frames[i], cv2.COLOR_BGR2RGB)
+            w, h = tgt_frames[i].shape[1], tgt_frames[i].shape[0]
             tgt_frames[i] = cv2.resize(tgt_frames[i], self.out_dim) # (64, 64, 3)
             tgt_frames[i] = np.transpose(tgt_frames[i], (2, 0, 1))  # (3, 64, 64)
             tgt_frames[i] = torch.from_numpy(tgt_frames[i])
+            tgt_frames[i] = tgt_frames[i].float()
+            tgt_frames[i] /= 255
             x = self.gaze_json[str(video)][str(0)][f'{frame + i}']['x']
             y = self.gaze_json[str(video)][str(0)][f'{frame + i}']['y']
 

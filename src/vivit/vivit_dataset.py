@@ -5,6 +5,7 @@ import sys
 import numpy as np
 import cv2
 import json
+import torch.nn.functional as F
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
@@ -61,7 +62,18 @@ class ViViT_EGTEA_Dataset(Dataset):
     
     def __len__(self):
         return len(self.index)
+    
+    def _get_gaussian_(self, dim, channels):
+        x = torch.arange(dim) - dim // 2
+        gauss = torch.exp(-(x**2) / (2 * 1.0**2))
+        gauss = gauss / gauss.sum()
 
+        kernel_2d = gauss[:, None] * gauss[None, :]
+        kernel_2d = kernel_2d / kernel_2d.sum()
+
+        kernel_2d = kernel_2d.expand(channels, 1, dim, dim)
+        return kernel_2d
+    
     def __getitem__(self, idx):
         """
             Returns frame in (T, C, H, W) shape
@@ -109,6 +121,10 @@ class ViViT_EGTEA_Dataset(Dataset):
             y = round(min(y, 1) * (self.out_dim[0] - 1))
 
             tgt_g_data[i, 0, y, x] = 1
+
+        kernel = _get_gaussian_(7, 1)
+        tgt_g_data = F.conv2d(tgt_g_data, kernel, padding = 3, groups = 1)
+
 
         result_dict = {
             'input_frames': video_frames.float(),
