@@ -23,12 +23,10 @@ from models import FrameGenerator, TemporalSaliencyPredictor, Discriminator
 
 def trainGazePredictor(generator, g_predictor, gt_map, x_video):
     dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
-    print(f'gt_map.shape {gt_map.shape}')
     g_predictor['optim'].zero_grad()
 
     gen_out = generator['model'](x_video) # (batch_size, 3, 32, 64, 64)
     p_map = g_predictor['model'](gen_out) # Predicted map
-    print(f'p_map.shape {p_map.shape}')
     loss_KL_div = torch.nn.KLDivLoss(reduction = 'batchmean', log_target = True)
 
     B, C, T, H, W = p_map.shape
@@ -41,7 +39,7 @@ def trainGazePredictor(generator, g_predictor, gt_map, x_video):
     gt_map = gt_map.view(B, T, -1)
 
     mask = (gt_map != 0).to(dev)
-    gt_map = torch.where(mask, gt_map, torch.tensor(-1e9).to(dev))
+    gt_map = torch.where(mask, gt_map, torch.tensor(-1e13).to(dev))
     
     gt_map = F.log_softmax(gt_map, dim = -1)
     p_map = F.log_softmax(p_map, dim = -1)
@@ -150,8 +148,8 @@ if __name__ == '__main__':
     for i in range(0, epochs):
         avg_loss = train_one_epoch(i, trainLoader, generator, gazePredictor, device, config['output_dir'], logger)
 
-        print(f'[{i}/{epochs}] Average Loss: Discriminator: {avg_loss_discriminator}, Generator: {avg_loss_generator}')
-        logger.info(f'[{i}/{epochs}] Average Loss: Discriminator: {avg_loss_discriminator}, Generator: {avg_loss_generator}')
+        print(f'[{i}/{epochs}] Average Loss: {avg_loss}')
+        logger.info(f'[{i}/{epochs}] Average Loss: {avg_loss}')
 
         
     

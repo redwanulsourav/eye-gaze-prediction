@@ -22,6 +22,7 @@ def aucBorji(pred1, gt1):
     for i in range(nFrame):
         pred = pred1[i]
         gt = gt1[i]
+
         nTotal = gt.shape[0] * gt.shape[1]
         nPve = len(torch.where(gt > 0)[0])
         print('nPve: ', nPve)
@@ -71,29 +72,31 @@ def evalBorji(config: dict):
 
     # Initialize dataset
     testData = DFG_GTEA_Dataset(
-                                    length =         config['length'],
                                     videos=          config['videos'] if 'videos' in config else [0],
-                                    root =       config['base_path'])
+                                    data_root =       config['base_path'], t_sample = 20)
+
     testLoader = DataLoader(testData, batch_size = config['batch_size'], shuffle = config['shuffle'] if 'shuffle' in config else True)
 
     scoreSum = 0
     for i, data in enumerate(testLoader):
-        frames = data['input_frames'].to(device)
-        fixationMap = data['target_gaze'].to(device)
-        genOut = generator(frames[:, 0, :, :, :])
+        frames = data['input_frame'].to(device)
+        fixationMap = data['tgt_gaze'].to(device)
+        genOut = generator(frames)
         salOut = salPredictor(genOut).squeeze()
         fixationMap = fixationMap.squeeze()
         T, H, W = fixationMap.shape
         salOut = salOut.view(T, H * W)
         fixationMap = fixationMap.view(T, H * W) 
+
         fixationMap = fixationMap.masked_fill(fixationMap == 0, float('-inf'))
         salOut = salOut.masked_fill(salOut == 0, float('-inf'))    
         fixationMap = torch.nn.functional.softmax(fixationMap, dim = -1)
         salOut = torch.nn.functional.softmax(salOut, dim = -1)
         fixationMap = fixationMap.view(T, H, W)
         salOut = salOut.view(T, H, W)
-        score = aucBorji(salOut, fixationMap)
 
+        
+        score = aucBorji(salOut, fixationMap)
         scoreSum += score
         print(f'Sample {i}: {score}')
     scoreSum /= len(testLoader)
@@ -103,7 +106,7 @@ def evalBorji(config: dict):
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument('-c', '--cfg', help = 'Train config [.yaml]', required = True)
+    ap.add_argument('-c', '--cfg', help = 'Eval config [.yaml]', required = True)
     
     ap = ap.parse_args()
 

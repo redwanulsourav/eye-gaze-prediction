@@ -96,6 +96,10 @@ class SMapEncoder(nn.Module):
         y = out_mlp(x[:, 0, :])
         return y
 
+class SMapDecoder(nn.Module):
+    def __init__(self, latent_dim = 512, p = 8, h = 64, w = 64):
+        super(SMapDecoder, self).__init__()
+
         
         
 class ViViT(nn.Module):

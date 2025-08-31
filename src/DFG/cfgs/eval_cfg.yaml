@@ -1,0 +1,13 @@
+base_path: /data/rsourave/datasets/EGTEA
+batch_size: 1
+epochs: 100
+shuffle: false
+videos:
+- 3
+- 10
+viewers:
+- 0
+output_dir: /data/rsourave/DFG_Saved/EGTEA/
+pretrained_generator: /data/rsourave/DFG_Saved/EGTEA/102/epochs/44/generator_model_state.pt
+pretrained_sal_predictor: /data/rsourave/DFG_Saved/EGTEA/120/epochs/31/model_state.pt
+eval_method: AUCBorji

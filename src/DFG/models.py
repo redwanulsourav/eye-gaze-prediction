@@ -194,6 +194,13 @@ class TemporalSaliencyPredictor(nn.Module):
             nn.ReLU(inplace = True)
             # (batch, 1, 32, 64, 64)
         )
+
+        for layer in self.layers:
+            if isinstance(layer, (nn.Conv3d, nn.ConvTranspose3d)):
+                nn.init.normal_(layer.weight, mean = 0.0, std = 0.01)
+                if layer.bias is not None:
+                    nn.init.zeros_(layer.bias)
+
     
     def forward(self, x):
         # (batch, 3, 32, 64, 64)
